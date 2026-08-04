@@ -1,17 +1,40 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import './App.css';
 
 function App() {
   const [activeTab, setActiveTab] = useState('feed');
   
-  // Mock Database State with Indian Rupees and NCERT/University Textbooks
-  const [books, setBooks] = useState([
-    { id: 1, title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in' },
-    { id: 2, title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in' },
-    { id: 3, title: 'NCERT Science Class 10', author: 'NCERT', course: 'CLASS10-SCI', originalPrice: 120, listPrice: 50, condition: 'Fair', seller: 'amit@school.edu.in' }
-  ]);
+  // Load initial books from localStorage if available, otherwise use default mock books
+  const [books, setBooks] = useState(() => {
+    const savedBooks = localStorage.getItem('edushare_books');
+    if (savedBooks) {
+      return JSON.parse(savedBooks);
+    }
+    return [
+      { id: 1, title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in' },
+      { id: 2, title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in' },
+      { id: 3, title: 'NCERT Science Class 10', author: 'NCERT', course: 'CLASS10-SCI', originalPrice: 120, listPrice: 50, condition: 'Fair', seller: 'amit@school.edu.in' }
+    ];
+  });
 
-  const [preferences, setPreferences] = useState(['CLASS12-MATH', 'BTECH-PHY101']);
+  // Save books to localStorage whenever the books array changes
+  useEffect(() => {
+    localStorage.setItem('edushare_books', JSON.stringify(books));
+  }, [books]);
+
+  // Load preferences from localStorage
+  const [preferences, setPreferences] = useState(() => {
+    const savedPrefs = localStorage.getItem('edushare_prefs');
+    if (savedPrefs) {
+      return JSON.parse(savedPrefs);
+    }
+    return ['CLASS12-MATH', 'BTECH-PHY101'];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('edushare_prefs', JSON.stringify(preferences));
+  }, [preferences]);
+
   const [newPref, setNewPref] = useState('');
 
   // Form State for Listing a Book

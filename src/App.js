@@ -2,10 +2,13 @@ import React, { useState, useEffect } from 'react';
 import './App.css';
 import { db } from './firebase';
 import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+
+const auth = getAuth();
 
 function App() {
-  // Authentication State
   const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
   const [loginPassword, setLoginPassword] = useState('');
   const [currentUserEmail, setCurrentUserEmail] = useState('');
@@ -67,15 +70,32 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Handle Login Submission
-  const handleLogin = (e) => {
+  // Handle Secure Authentication (Login or Sign Up)
+  const handleAuthSubmit = async (e) => {
     e.preventDefault();
-    if (!loginEmail || !loginPassword) {
-      alert("Please enter both email and password.");
-      return;
+    try {
+      if (isSignUpMode) {
+        await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
+        alert("Account created successfully! You are now logged in.");
+      } else {
+        await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      }
+      setCurrentUserEmail(loginEmail.trim());
+      setIsLoggedIn(true);
+    } catch (error) {
+      alert("Authentication Error: " + error.message);
     }
-    setCurrentUserEmail(loginEmail.trim());
-    setIsLoggedIn(true);
+  };
+
+  // Handle Logout
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsLoggedIn(false);
+      setLoginPassword('');
+    } catch (error) {
+      console.error("Logout error", error);
+    }
   };
 
   // Handle listing submission to Firebase Cloud
@@ -119,7 +139,6 @@ function App() {
       setBooks([addedBook, ...books]);
       setSuccessMsg('Book listed live on the cloud! Visible instantly on all connected PCs.');
       
-      // Clear form
       setFormTitle('');
       setFormAuthor('');
       setFormCourse('');
@@ -164,36 +183,79 @@ function App() {
     setPreferences(preferences.filter(p => p !== pref));
   };
 
-  // If user is not logged in, show Login View
+  // If user is not logged in, show Scrollable Hero & Auth View
   if (!isLoggedIn) {
     return (
-      <div className="login-container">
-        <div className="login-card">
-          <h2>📚 EduShareConnect Login</h2>
-          <p className="subtitle">Enter your institutional email & password to enter the marketplace.</p>
-          <form onSubmit={handleLogin} className="book-form">
-            <div className="form-group">
-              <label>Institutional Email</label>
-              <input 
-                type="email" 
-                value={loginEmail} 
-                onChange={(e) => setLoginEmail(e.target.value)} 
-                placeholder="student@college.ac.in" 
-                required 
-              />
+      <div className="login-page-wrapper">
+        <div className="login-container">
+          
+          <div className="scrollable-hero-card">
+            <div className="hero-badge">✨ Welcome to India's Academic Revolution</div>
+            <h1 className="hero-title">📚 EduShareConnect</h1>
+            
+            <div className="scroll-content-box">
+              <div className="vision-mission-block">
+                <h3>🌟 Our Vision</h3>
+                <p>To build a sustainable, student-driven academic sharing network across India where financial constraints never block access to essential textbooks and learning materials.</p>
+              </div>
+
+              <div className="vision-mission-block">
+                <h3>🎯 Our Mission</h3>
+                <p>Empowering students to seamlessly pass down NCERT and university textbooks at a <strong>minimum 50% discount</strong>, fostering peer-to-peer collaboration, reducing paper waste, and cultivating a community of mutual academic support.</p>
+              </div>
+
+              <div className="vision-mission-block">
+                <h3>🚀 Why Choose Us?</h3>
+                <p>• Cloud-synced real-time listings across campuses.<br />
+                • Mandatory strict pricing controls ensuring maximum savings.<br />
+                • Instant wishlist alerts for rare course materials.</p>
+              </div>
             </div>
-            <div className="form-group">
-              <label>Password</label>
-              <input 
-                type="password" 
-                value={loginPassword} 
-                onChange={(e) => setLoginPassword(e.target.value)} 
-                placeholder="••••••••" 
-                required 
-              />
-            </div>
-            <button type="submit" className="submit-btn">Login / Sign In</button>
-          </form>
+            <p className="scroll-hint">⬇️ Scroll inside to read more & sign in below ⬇️</p>
+          </div>
+
+          <div className="login-card">
+            <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
+            <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
+            
+            <form onSubmit={handleAuthSubmit} className="book-form">
+              <div className="form-group">
+                <label>Email Address</label>
+                <input 
+                  type="email" 
+                  value={loginEmail} 
+                  onChange={(e) => setLoginEmail(e.target.value)} 
+                  placeholder="student@college.ac.in" 
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input 
+                  type="password" 
+                  value={loginPassword} 
+                  onChange={(e) => setLoginPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  required 
+                />
+              </div>
+              <button type="submit" className="submit-btn">
+                {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
+              </button>
+            </form>
+
+            <p style={{ marginTop: '15px', fontSize: '0.85rem', textAlign: 'center' }}>
+              {isSignUpMode ? 'Already have an account? ' : "Don't have an account? "}
+              <button 
+                type="button" 
+                onClick={() => setIsSignUpMode(!isSignUpMode)} 
+                style={{ background: 'none', border: 'none', color: '#3498db', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+              >
+                {isSignUpMode ? 'Login here' : 'Sign up here'}
+              </button>
+            </p>
+          </div>
+
         </div>
       </div>
     );
@@ -201,26 +263,21 @@ function App() {
 
   return (
     <div className="app-container">
-      {/* Header */}
       <header className="navbar">
         <div className="logo">📚 EduShareConnect India</div>
         <nav className="nav-links">
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
           <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell a Book</button>
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>My Wishlist Alerts</button>
-          <button onClick={() => setIsLoggedIn(false)} style={{ background: '#e74c3c', color: 'white' }}>Logout</button>
+          <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white' }}>Logout</button>
         </nav>
       </header>
 
-      {/* Main Content Wrapper */}
       <main className="content">
-
-        {/* User Identity Banner */}
         <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>Logged in as: <strong>{currentUserEmail}</strong></span>
         </div>
         
-        {/* TAB 1: MARKETPLACE FEED */}
         {activeTab === 'feed' && (
           <div className="feed-section">
             <h2>Indian Academic Book Marketplace</h2>
@@ -239,7 +296,6 @@ function App() {
                     <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
                       {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
                       
-                      {/* Delete Button (Only shows if current user is the owner) */}
                       {isOwner && (
                         <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove My Listing">
                           &times;
@@ -267,7 +323,6 @@ function App() {
           </div>
         )}
 
-        {/* TAB 2: SELL A BOOK */}
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
@@ -316,7 +371,6 @@ function App() {
           </div>
         )}
 
-        {/* TAB 3: PREFERENCES & WISHLIST */}
         {activeTab === 'preferences' && (
           <div className="preferences-section">
             <h2>Needy Student Wishlist & Alerts</h2>

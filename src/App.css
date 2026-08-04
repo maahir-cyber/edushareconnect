@@ -1,399 +1,407 @@
-/* Global Reset & Typography */
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+import React, { useState, useEffect } from 'react';
+import './App.css';
+import { db } from './firebase';
+import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
+
+const auth = getAuth();
+
+function App() {
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [isSignUpMode, setIsSignUpMode] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+
+  const [activeTab, setItemsTab] = useState('feed');
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  // Fetch books from Firebase Cloud Firestore on page load
+  useEffect(() => {
+    if (!isLoggedIn) return;
+
+    const fetchBooks = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "books"));
+        const booksList = querySnapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+        
+        if (booksList.length > 0) {
+          setBooks(booksList);
+        } else {
+          setBooks([
+            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in' },
+            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in' }
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching books: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+
+    fetchBooks();
+  }, [isLoggedIn]);
+
+  // Preferences state with localStorage
+  const [preferences, setPreferences] = useState(() => {
+    const savedPrefs = localStorage.getItem('edushare_prefs');
+    return savedPrefs ? JSON.parse(savedPrefs) : ['CLASS12-MATH', 'BTECH-PHY101'];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('edushare_prefs', JSON.stringify(preferences));
+  }, [preferences]);
+
+  const [newPref, setNewPref] = useState('');
+
+  // Form State for Listing a Book
+  const [formTitle, setFormTitle] = useState('');
+  const [formAuthor, setFormAuthor] = useState('');
+  const [formCourse, setFormCourse] = useState('');
+  const [formOriginalPrice, setFormOriginalPrice] = useState('');
+  const [formListPrice, setFormListPrice] = useState('');
+  const [formCondition, setFormCondition] = useState('Good');
+  const [formSeller, setFormSeller] = useState('');
+  const [errorMsg, setErrorMsg] = useState('');
+  const [successMsg, setSuccessMsg] = useState('');
+
+  // Handle Secure Authentication (Login or Sign Up)
+  const handleAuthSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      if (isSignUpMode) {
+        await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
+        alert("Account created successfully! You are now logged in.");
+      } else {
+        await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
+      }
+      setCurrentUserEmail(loginEmail.trim());
+      setIsLoggedIn(true);
+    } catch (error) {
+      alert("Authentication Error: " + error.message);
+    }
+  };
+
+  // Handle Logout
+  const handleLogout = async () => {
+    try {
+      await signOut(auth);
+      setIsLoggedIn(false);
+      setLoginPassword('');
+    } catch (error) {
+      console.error("Logout error", error);
+    }
+  };
+
+  // Handle listing submission to Firebase Cloud
+  const handleListBook = async (e) => {
+    e.preventDefault();
+    setErrorMsg('');
+    setSuccessMsg('');
+
+    const orig = parseFloat(formOriginalPrice);
+    const listed = parseFloat(formListPrice);
+
+    if (isNaN(orig) || isNaN(listed)) {
+      setErrorMsg('Please enter valid numeric prices in ₹.');
+      return;
+    }
+
+    const maxAllowedPrice = orig * 0.5;
+
+    if (listed > maxAllowedPrice) {
+      setErrorMsg(`Policy Error: Max allowed price for a ₹${orig} book is ₹${maxAllowedPrice.toFixed(2)} (Minimum 50% discount required).`);
+      return;
+    }
+
+    const sellerEmail = formSeller || currentUserEmail;
+
+    const newBookData = {
+      title: formTitle,
+      author: formAuthor,
+      course: formCourse.toUpperCase(),
+      originalPrice: orig,
+      listPrice: listed,
+      condition: formCondition,
+      seller: sellerEmail,
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, "books"), newBookData);
+      const addedBook = { id: docRef.id, ...newBookData };
+      
+      setBooks([addedBook, ...books]);
+      setSuccessMsg('Book listed live on the cloud! Visible instantly on all connected PCs.');
+      
+      setFormTitle('');
+      setFormAuthor('');
+      setFormCourse('');
+      setFormOriginalPrice('');
+      setFormListPrice('');
+      setFormSeller('');
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      setErrorMsg('Failed to save listing to cloud database.');
+    }
+  };
+
+  // Handle deleting a book with security check (only owner can delete)
+  const handleDeleteBook = async (bookId, bookSeller) => {
+    if (bookSeller && bookSeller.toLowerCase() !== currentUserEmail.toLowerCase()) {
+      alert("Unauthorized: You can only delete your own book listings!");
+      return;
+    }
+
+    if (window.confirm("Are you sure you want to remove your book listing?")) {
+      try {
+        if (bookId.length > 5) {
+          await deleteDoc(doc(db, "books", bookId));
+        }
+        setBooks(books.filter(book => book.id !== bookId));
+      } catch (error) {
+        console.error("Error deleting document: ", error);
+        alert("Failed to delete the listing from the database.");
+      }
+    }
+  };
+
+  const addPreference = (e) => {
+    e.preventDefault();
+    if (newPref && !preferences.includes(newPref.toUpperCase())) {
+      setPreferences([...preferences, newPref.toUpperCase()]);
+      setNewPref('');
+    }
+  };
+
+  const removePreference = (pref) => {
+    setPreferences(preferences.filter(p => p !== pref));
+  };
+
+  // If user is not logged in, show Background Image View & Auth View
+  if (!isLoggedIn) {
+    return (
+      <div className="login-page-wrapper">
+        <div className="login-container">
+          
+          <div className="scrollable-hero-card">
+            <div className="hero-badge">✨ Empowering Education Through Collaboration</div>
+            <h1 className="hero-title">EDUSHARE CONNECT</h1>
+            
+            <div className="scroll-content-box">
+              <div className="vision-mission-block">
+                <h3>👁️ VISION</h3>
+                <p>To create a global ecosystem where quality education is accessible, collaborative, and personalized for every learner everywhere.</p>
+              </div>
+
+              <div className="vision-mission-block">
+                <h3>🚀 MISSION</h3>
+                <p>To connect students, mentors, and resources seamlessly, fostering a dynamic community that facilitates knowledge sharing, mentorship, and interactive learning.</p>
+              </div>
+
+              <div className="vision-mission-block">
+                <h3>👥 ABOUT US</h3>
+                <p>EduShare Connect is an innovative platform empowering learners to collaborate, share knowledge, and access mentorship. We build bridges for academic and personal growth.</p>
+              </div>
+            </div>
+            <p className="scroll-hint">⬇️ Scroll inside to read more & sign in below ⬇️</p>
+          </div>
+
+          <div className="login-card">
+            <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
+            <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
+            
+            <form onSubmit={handleAuthSubmit} className="book-form">
+              <div className="form-group">
+                <label>Email Address</label>
+                <input 
+                  type="email" 
+                  value={loginEmail} 
+                  onChange={(e) => setLoginEmail(e.target.value)} 
+                  placeholder="student@college.ac.in" 
+                  required 
+                />
+              </div>
+              <div className="form-group">
+                <label>Password</label>
+                <input 
+                  type="password" 
+                  value={loginPassword} 
+                  onChange={(e) => setLoginPassword(e.target.value)} 
+                  placeholder="••••••••" 
+                  required 
+                />
+              </div>
+              <button type="submit" className="submit-btn">
+                {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
+              </button>
+            </form>
+
+            <p style={{ marginTop: '15px', fontSize: '0.85rem', textAlign: 'center' }}>
+              {isSignUpMode ? 'Already have an account? ' : "Don't have an account? "}
+              <button 
+                type="button" 
+                onClick={() => setIsSignUpMode(!isSignUpMode)} 
+                style={{ background: 'none', border: 'none', color: '#3498db', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+              >
+                {isSignUpMode ? 'Login here' : 'Sign up here'}
+              </button>
+            </p>
+          </div>
+
+        </div>
+      </div>
+    );
+  }
+
+  return (
+    <div className="app-container">
+      <header className="navbar">
+        <div className="logo">📚 EduShareConnect India</div>
+        <nav className="nav-links">
+          <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
+          <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell a Book</button>
+          <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>My Wishlist Alerts</button>
+          <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white' }}>Logout</button>
+        </nav>
+      </header>
+
+      <main className="content">
+        <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <span style={{ fontSize: '0.9rem', color: '#555' }}>Logged in as: <strong>{currentUserEmail}</strong></span>
+        </div>
+        
+        {activeTab === 'feed' && (
+          <div className="feed-section">
+            <h2>Indian Academic Book Marketplace</h2>
+            <p className="subtitle">Cloud-synced listings featuring NCERT and University textbooks at a <strong>minimum 50% discount</strong>.</p>
+            
+            {loading ? (
+              <p>Loading books from cloud database...</p>
+            ) : (
+              <div className="book-grid">
+                {books.map((book) => {
+                  const discountPercent = Math.round(((book.originalPrice - book.listPrice) / book.originalPrice) * 100);
+                  const isMatched = preferences.includes(book.course);
+                  const isOwner = book.seller && book.seller.toLowerCase() === currentUserEmail.toLowerCase();
+
+                  return (
+                    <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
+                      {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
+                      
+                      {isOwner && (
+                        <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove My Listing">
+                          &times;
+                        </button>
+                      )}
+
+                      <div className="course-tag">{book.course}</div>
+                      <h3>{book.title}</h3>
+                      <p className="author">by {book.author}</p>
+                      <div className="pricing">
+                        <span className="original-price">₹{book.originalPrice}</span>
+                        <span className="list-price">₹{book.listPrice}</span>
+                        <span className="discount-tag">{discountPercent}% OFF</span>
+                      </div>
+                      <p className="condition">Condition: <strong>{book.condition}</strong></p>
+                      <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
+                      <button className="contact-btn" onClick={() => alert(`Connecting with seller: ${book.seller}\nArrange campus pickup or local delivery.`)}>
+                        Contact Seller
+                      </button>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+          </div>
+        )}
+
+        {activeTab === 'sell' && (
+          <div className="form-section">
+            <h2>List Your Unused Textbook</h2>
+            <p className="subtitle">Listings go straight to the cloud database under your email. Max price cannot exceed 50% of MRP.</p>
+            
+            {errorMsg && <div className="alert error">{errorMsg}</div>}
+            {successMsg && <div className="alert success">{successMsg}</div>}
+
+            <form onSubmit={handleListBook} className="book-form">
+              <div className="form-group">
+                <label>Book Title (e.g., NCERT Physics Class 11)</label>
+                <input type="text" value={formTitle} onChange={(e) => setFormTitle(e.target.value)} placeholder="e.g. NCERT Biology Class 12" required />
+              </div>
+              <div className="form-group">
+                <label>Author / Publisher</label>
+                <input type="text" value={formAuthor} onChange={(e) => setFormAuthor(e.target.value)} placeholder="e.g. NCERT or R.D. Sharma" required />
+              </div>
+              <div className="form-group">
+                <label>Class / Course Code</label>
+                <input type="text" value={formCourse} onChange={(e) => setFormCourse(e.target.value)} placeholder="e.g. CLASS12-BIO or BTECH-CSE101" required />
+              </div>
+              <div className="form-row">
+                <div className="form-group">
+                  <label>Original MRP (₹)</label>
+                  <input type="number" value={formOriginalPrice} onChange={(e) => setFormOriginalPrice(e.target.value)} placeholder="350" required />
+                </div>
+                <div className="form-group">
+                  <label>Your Listing Price (₹)</label>
+                  <input type="number" value={formListPrice} onChange={(e) => setFormListPrice(e.target.value)} placeholder="Max 50% of MRP" required />
+                </div>
+              </div>
+              <div className="form-group">
+                <label>Book Condition</label>
+                <select value={formCondition} onChange={(e) => setFormCondition(e.target.value)}>
+                  <option value="Like New">Like New (No highlighting/markings)</option>
+                  <option value="Good">Good (Minor pencil notes)</option>
+                  <option value="Fair">Fair (Worn cover, fully readable pages)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Institutional Email (School/College)</label>
+                <input type="email" value={formSeller || currentUserEmail} onChange={(e) => setFormSeller(e.target.value)} placeholder="student@college.ac.in" required />
+              </div>
+              <button type="submit" className="submit-btn">Publish to Cloud (Enforce 50%+ Discount)</button>
+            </form>
+          </div>
+        )}
+
+        {activeTab === 'preferences' && (
+          <div className="preferences-section">
+            <h2>Needy Student Wishlist & Alerts</h2>
+            <p className="subtitle">Add your upcoming grade, board, or college course codes to get instantly notified when discounted books are listed.</p>
+
+            <form onSubmit={addPreference} className="pref-form">
+              <input 
+                type="text" 
+                value={newPref} 
+                onChange={(e) => setNewPref(e.target.value)} 
+                placeholder="Enter Code (e.g. CLASS10-SCI)" 
+              />
+              <button type="submit" className="add-btn">Add Alert</button>
+            </form>
+
+            <div className="pref-tags">
+              <h3>Active Alerts:</h3>
+              {preferences.length === 0 ? (
+                <p>No preferences added yet.</p>
+              ) : (
+                preferences.map((pref) => (
+                  <span key={pref} className="pref-tag">
+                    {pref} <button onClick={() => removePreference(pref)}>&times;</button>
+                  </span>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
+      </main>
+    </div>
+  );
 }
 
-body {
-  background-color: #f4f7f6;
-  color: #333;
-}
-
-.app-container {
-  min-height: 100vh;
-  display: flex;
-  flex-direction: column;
-}
-
-/* Navbar */
-.navbar {
-  background-color: #ffffff;
-  padding: 1rem 2rem;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
-  box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-  position: sticky;
-  top: 0;
-  z-index: 100;
-}
-
-.logo {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #2c3e50;
-}
-
-.nav-links {
-  display: flex;
-  gap: 10px;
-  align-items: center;
-}
-
-.nav-links button {
-  background: transparent;
-  border: none;
-  padding: 8px 16px;
-  font-size: 0.95rem;
-  font-weight: 600;
-  color: #7f8c8d;
-  cursor: pointer;
-  border-radius: 4px;
-  transition: all 0.2s;
-}
-
-.nav-links button:hover {
-  color: #2c3e50;
-  background-color: #ecf0f1;
-}
-
-.nav-links button.active {
-  color: #ffffff;
-  background-color: #3498db;
-}
-
-/* Main Content Wrapper */
-.content {
-  flex: 1;
-  max-width: 1200px;
-  width: 100%;
-  margin: 0 auto;
-  padding: 2rem 1rem;
-}
-
-/* Marketplace Feed */
-.feed-section h2 {
-  font-size: 1.8rem;
-  color: #2c3e50;
-  margin-bottom: 5px;
-}
-
-.subtitle {
-  color: #7f8c8d;
-  margin-bottom: 2rem;
-}
-
-.book-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 20px;
-}
-
-.book-card {
-  background: #ffffff;
-  border-radius: 8px;
-  padding: 20px;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  justify-content: space-between;
-  border: 1px solid #e2e8f0;
-  transition: transform 0.2s;
-}
-
-.book-card:hover {
-  transform: translateY(-3px);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.1);
-}
-
-.matched-card {
-  border: 2px solid #27ae60;
-  background-color: #f4fbf7;
-}
-
-.match-badge {
-  background-color: #27ae60;
-  color: white;
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 3px 8px;
-  border-radius: 4px;
-  display: inline-block;
-  margin-bottom: 10px;
-  width: fit-content;
-}
-
-.delete-btn {
-  position: absolute;
-  top: 15px;
-  right: 15px;
-  background: #e74c3c;
-  color: white;
-  border: none;
-  border-radius: 50%;
-  width: 26px;
-  height: 26px;
-  font-size: 16px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-}
-
-.delete-btn:hover {
-  background: #c0392b;
-}
-
-.course-tag {
-  background-color: #ebf5fb;
-  color: #2980b9;
-  font-size: 0.8rem;
-  font-weight: bold;
-  padding: 4px 8px;
-  border-radius: 4px;
-  width: fit-content;
-  margin-bottom: 10px;
-}
-
-.book-card h3 {
-  font-size: 1.15rem;
-  color: #2c3e50;
-  margin-bottom: 5px;
-}
-
-.author {
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  margin-bottom: 15px;
-}
-
-.pricing {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.original-price {
-  text-decoration: line-through;
-  color: #95a5a6;
-  font-size: 0.9rem;
-}
-
-.list-price {
-  font-size: 1.25rem;
-  font-weight: bold;
-  color: #27ae60;
-}
-
-.discount-tag {
-  background-color: #f1c40f;
-  color: #7f6000;
-  font-size: 0.75rem;
-  font-weight: bold;
-  padding: 2px 6px;
-  border-radius: 3px;
-}
-
-.condition {
-  font-size: 0.85rem;
-  color: #555;
-  margin-bottom: 15px;
-}
-
-.contact-btn {
-  background-color: #34495e;
-  color: white;
-  border: none;
-  padding: 10px;
-  border-radius: 4px;
-  font-weight: 600;
-  cursor: pointer;
-  width: 100%;
-  transition: background 0.2s;
-}
-
-.contact-btn:hover {
-  background-color: #2c3e50;
-}
-
-/* Form Styles */
-.form-section, .preferences-section {
-  background: white;
-  padding: 30px;
-  border-radius: 8px;
-  max-width: 600px;
-  margin: 0 auto;
-  box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-}
-
-.form-section h2, .preferences-section h2 {
-  font-size: 1.5rem;
-  color: #2c3e50;
-  margin-bottom: 5px;
-}
-
-.book-form {
-  margin-top: 20px;
-  display: flex;
-  flex-direction: column;
-  gap: 15px;
-}
-
-.form-group {
-  display: flex;
-  flex-direction: column;
-  gap: 5px;
-}
-
-.form-group label {
-  font-size: 0.9rem;
-  font-weight: 600;
-  color: #34495e;
-}
-
-.form-group input, .form-group select, .pref-form input {
-  padding: 10px;
-  border: 1px solid #bdc3c7;
-  border-radius: 4px;
-  font-size: 0.95rem;
-}
-
-.form-group input:focus, .form-group select:focus, .pref-form input:focus {
-  outline: none;
-  border-color: #3498db;
-}
-
-.form-row {
-  display: flex;
-  gap: 15px;
-}
-
-.form-row .form-group {
-  flex: 1;
-}
-
-.submit-btn, .add-btn {
-  background-color: #27ae60;
-  color: white;
-  border: none;
-  padding: 12px;
-  border-radius: 4px;
-  font-size: 1rem;
-  font-weight: 600;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.submit-btn:hover, .add-btn:hover {
-  background-color: #219653;
-}
-
-/* Alerts */
-.alert {
-  padding: 12px;
-  border-radius: 4px;
-  margin-top: 15px;
-  font-size: 0.9rem;
-}
-
-.alert.error {
-  background-color: #fadbd8;
-  color: #900c3f;
-  border: 1px solid #f5b7b1;
-}
-
-.alert.success {
-  background-color: #d4efdf;
-  color: #145a32;
-  border: 1px solid #a9dfbf;
-}
-
-/* Preferences & Wishlist */
-.pref-form {
-  display: flex;
-  gap: 10px;
-  margin-top: 20px;
-  margin-bottom: 20px;
-}
-
-.pref-form input {
-  flex: 1;
-}
-
-.pref-tags {
-  margin-top: 20px;
-}
-
-.pref-tags h3 {
-  font-size: 1rem;
-  color: #2c3e50;
-  margin-bottom: 10px;
-}
-
-.pref-tag {
-  display: inline-flex;
-  align-items: center;
-  background-color: #e8f8f5;
-  color: #16a085;
-  padding: 6px 12px;
-  border-radius: 20px;
-  font-size: 0.9rem;
-  font-weight: bold;
-  margin-right: 8px;
-  margin-bottom: 8px;
-  border: 1px solid #a3e4d7;
-}
-
-.pref-tag button {
-  background: none;
-  border: none;
-  color: #16a085;
-  font-size: 1.1rem;
-  margin-left: 8px;
-  cursor: pointer;
-}
-
-.pref-tag button:hover {
-  color: #c0392b;
-}
-
-/* Login Screen Styles */
-.login-container {
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  min-height: 100vh;
-  background-color: #f4f7f6;
-  padding: 20px;
-}
-
-.login-card {
-  background: white;
-  padding: 40px;
-  border-radius: 8px;
-  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
-  width: 100%;
-  max-width: 420px;
-  text-align: center;
-}
-
-.login-card h2 {
-  color: #2c3e50;
-  margin-bottom: 10px;
-  font-size: 1.6rem;
-}
-
-.login-card .subtitle {
-  font-size: 0.9rem;
-  color: #7f8c8d;
-  margin-bottom: 25px;
-}
-
-.login-card .book-form {
-  text-align: left;
-}
+export default App;

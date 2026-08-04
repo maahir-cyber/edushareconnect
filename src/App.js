@@ -8,6 +8,9 @@ function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Current logged-in user simulation (can be changed or updated via login input)
+  const [currentUserEmail, setCurrentUserEmail] = useState('student@college.edu.in');
+
   // Fetch books from Firebase Cloud Firestore on page load
   useEffect(() => {
     const fetchBooks = async () => {
@@ -75,11 +78,12 @@ function App() {
 
     const maxAllowedPrice = orig * 0.5;
 
-    // Guardrail Enforcement: Price must be at or below 50% of original
     if (listed > maxAllowedPrice) {
       setErrorMsg(`Policy Error: Max allowed price for a ₹${orig} book is ₹${maxAllowedPrice.toFixed(2)} (Minimum 50% discount required).`);
       return;
     }
+
+    const sellerEmail = formSeller || currentUserEmail;
 
     const newBookData = {
       title: formTitle,
@@ -88,7 +92,7 @@ function App() {
       originalPrice: orig,
       listPrice: listed,
       condition: formCondition,
-      seller: formSeller || 'student@college.edu.in',
+      seller: sellerEmail,
       createdAt: serverTimestamp()
     };
 
@@ -112,15 +116,19 @@ function App() {
     }
   };
 
-  // Handle deleting a book from database and UI
-  const handleDeleteBook = async (bookId) => {
-    if (window.confirm("Are you sure you want to remove this book listing?")) {
+  // Handle deleting a book with security check (only owner can delete)
+  const handleDeleteBook = async (bookId, bookSeller) => {
+    // Security check: Compare logged-in user email with book seller email
+    if (bookSeller && bookSeller.toLowerCase() !== currentUserEmail.toLowerCase()) {
+      alert("Unauthorized: You can only delete your own book listings!");
+      return;
+    }
+
+    if (window.confirm("Are you sure you want to remove your book listing?")) {
       try {
-        // If it's a Firestore document ID (string length > 10 typically), delete from cloud
         if (bookId.length > 5) {
           await deleteDoc(doc(db, "books", bookId));
         }
-        // Filter out from local state
         setBooks(books.filter(book => book.id !== bookId));
       } catch (error) {
         console.error("Error deleting document: ", error);
@@ -153,8 +161,22 @@ function App() {
         </nav>
       </header>
 
-      {/* Main Content Area */}
+      {/* Main Content Wrapper */}
       <main className="content">
+
+        {/* User Identity Banner */}
+        <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+          <span style={{ fontSize: '0.9rem', color: '#555' }}>Logged in as: <strong>{currentUserEmail}</strong></span>
+          <button 
+            onClick={() => {
+              const newEmail = prompt("Enter your institutional email address to switch user:", currentUserEmail);
+              if (newEmail) setCurrentUserEmail(newEmail.trim());
+            }} 
+            style={{ background: '#3498db', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
+          >
+            Switch User Email
+          </button>
+        </div>
         
         {/* TAB 1: MARKETPLACE FEED */}
         {activeTab === 'feed' && (
@@ -169,15 +191,18 @@ function App() {
                 {books.map((book) => {
                   const discountPercent = Math.round(((book.originalPrice - book.listPrice) / book.originalPrice) * 100);
                   const isMatched = preferences.includes(book.course);
+                  const isOwner = book.seller && book.seller.toLowerCase() === currentUserEmail.toLowerCase();
 
                   return (
                     <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
                       {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
                       
-                      {/* Delete Button */}
-                      <button className="delete-btn" onClick={() => handleDeleteBook(book.id)} title="Remove Listing">
-                        &times;
-                      </button>
+                      {/* Delete Button (Only shows if current user is the owner) */}
+                      {isOwner && (
+                        <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove My Listing">
+                          &times;
+                        </button>
+                      )}
 
                       <div className="course-tag">{book.course}</div>
                       <h3>{book.title}</h3>
@@ -188,6 +213,7 @@ function App() {
                         <span className="discount-tag">{discountPercent}% OFF</span>
                       </div>
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
+                      <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
                       <button className="contact-btn" onClick={() => alert(`Connecting with seller: ${book.seller}\nArrange campus pickup or local delivery.`)}>
                         Contact Seller
                       </button>
@@ -203,7 +229,7 @@ function App() {
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
-            <p className="subtitle">Listings go straight to the cloud database. Max price cannot exceed 50% of MRP.</p>
+            <p className="subtitle">Listings go straight to the cloud database under your email. Max price cannot exceed 50% of MRP.</p>
             
             {errorMsg && <div className="alert error">{errorMsg}</div>}
             {successMsg && <div className="alert success">{successMsg}</div>}
@@ -241,7 +267,7 @@ function App() {
               </div>
               <div className="form-group">
                 <label>Institutional Email (School/College)</label>
-                <input type="email" value={formSeller} onChange={(e) => setFormSeller(e.target.value)} placeholder="student@college.ac.in" required />
+                <input type="email" value={formSeller || currentUserEmail} onChange={(e) => setFormSeller(e.target.value)} placeholder="student@college.ac.in" required />
               </div>
               <button type="submit" className="submit-btn">Publish to Cloud (Enforce 50%+ Discount)</button>
             </form>

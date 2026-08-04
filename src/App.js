@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { db } from './firebase';
-import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 function App() {
   const [activeTab, setItemsTab] = useState('feed');
@@ -13,11 +13,11 @@ function App() {
     const fetchBooks = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "books"));
-        const booksList = querySnapshot.docs.map(doc => ({
-          id: doc.id,
-          ...doc.data()
+        const booksList = querySnapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
         }));
-        // If database is empty, fall back to initial mock books
+        
         if (booksList.length > 0) {
           setBooks(booksList);
         } else {
@@ -112,6 +112,23 @@ function App() {
     }
   };
 
+  // Handle deleting a book from database and UI
+  const handleDeleteBook = async (bookId) => {
+    if (window.confirm("Are you sure you want to remove this book listing?")) {
+      try {
+        // If it's a Firestore document ID (string length > 10 typically), delete from cloud
+        if (bookId.length > 5) {
+          await deleteDoc(doc(db, "books", bookId));
+        }
+        // Filter out from local state
+        setBooks(books.filter(book => book.id !== bookId));
+      } catch (error) {
+        console.error("Error deleting document: ", error);
+        alert("Failed to delete the listing from the database.");
+      }
+    }
+  };
+
   const addPreference = (e) => {
     e.preventDefault();
     if (newPref && !preferences.includes(newPref.toUpperCase())) {
@@ -156,6 +173,12 @@ function App() {
                   return (
                     <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
                       {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
+                      
+                      {/* Delete Button */}
+                      <button className="delete-btn" onClick={() => handleDeleteBook(book.id)} title="Remove Listing">
+                        &times;
+                      </button>
+
                       <div className="course-tag">{book.course}</div>
                       <h3>{book.title}</h3>
                       <p className="author">by {book.author}</p>

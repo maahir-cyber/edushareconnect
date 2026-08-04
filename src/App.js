@@ -183,32 +183,30 @@ function App() {
     setPreferences(preferences.filter(p => p !== pref));
   };
 
-  // If user is not logged in, show Scrollable Hero & Auth View
+  // If user is not logged in, show Background Image View & Auth View
   if (!isLoggedIn) {
     return (
       <div className="login-page-wrapper">
         <div className="login-container">
           
           <div className="scrollable-hero-card">
-            <div className="hero-badge">✨ Welcome to India's Academic Revolution</div>
-            <h1 className="hero-title">📚 EduShareConnect</h1>
+            <div className="hero-badge">✨ Empowering Education Through Collaboration</div>
+            <h1 className="hero-title">EDUSHARE CONNECT</h1>
             
             <div className="scroll-content-box">
               <div className="vision-mission-block">
-                <h3>🌟 Our Vision</h3>
-                <p>To build a sustainable, student-driven academic sharing network across India where financial constraints never block access to essential textbooks and learning materials.</p>
+                <h3>👁️ VISION</h3>
+                <p>To create a global ecosystem where quality education is accessible, collaborative, and personalized for every learner everywhere.</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>🎯 Our Mission</h3>
-                <p>Empowering students to seamlessly pass down NCERT and university textbooks at a <strong>minimum 50% discount</strong>, fostering peer-to-peer collaboration, reducing paper waste, and cultivating a community of mutual academic support.</p>
+                <h3>🚀 MISSION</h3>
+                <p>To connect students, mentors, and resources seamlessly, fostering a dynamic community that facilitates knowledge sharing, mentorship, and interactive learning.</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>🚀 Why Choose Us?</h3>
-                <p>• Cloud-synced real-time listings across campuses.<br />
-                • Mandatory strict pricing controls ensuring maximum savings.<br />
-                • Instant wishlist alerts for rare course materials.</p>
+                <h3>👥 ABOUT US</h3>
+                <p>EduShare Connect is an innovative platform empowering learners to collaborate, share knowledge, and access mentorship. We build bridges for academic and personal growth.</p>
               </div>
             </div>
             <p className="scroll-hint">⬇️ Scroll inside to read more & sign in below ⬇️</p>

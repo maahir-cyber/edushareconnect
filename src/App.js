@@ -1,34 +1,45 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
+import { db } from './firebase';
+import { collection, getDocs, addDoc, serverTimestamp } from 'firebase/firestore';
 
 function App() {
-  const [activeTab, setActiveTab] = useState('feed');
-  
-  // Load initial books from localStorage if available, otherwise use default mock books
-  const [books, setBooks] = useState(() => {
-    const savedBooks = localStorage.getItem('edushare_books');
-    if (savedBooks) {
-      return JSON.parse(savedBooks);
-    }
-    return [
-      { id: 1, title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in' },
-      { id: 2, title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in' },
-      { id: 3, title: 'NCERT Science Class 10', author: 'NCERT', course: 'CLASS10-SCI', originalPrice: 120, listPrice: 50, condition: 'Fair', seller: 'amit@school.edu.in' }
-    ];
-  });
+  const [activeTab, setItemsTab] = useState('feed');
+  const [books, setBooks] = useState([]);
+  const [loading, setLoading] = useState(true);
 
-  // Save books to localStorage whenever the books array changes
+  // Fetch books from Firebase Cloud Firestore on page load
   useEffect(() => {
-    localStorage.setItem('edushare_books', JSON.stringify(books));
-  }, [books]);
+    const fetchBooks = async () => {
+      try {
+        const querySnapshot = await getDocs(collection(db, "books"));
+        const booksList = querySnapshot.docs.map(doc => ({
+          id: doc.id,
+          ...doc.data()
+        }));
+        // If database is empty, fall back to initial mock books
+        if (booksList.length > 0) {
+          setBooks(booksList);
+        } else {
+          setBooks([
+            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in' },
+            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in' }
+          ]);
+        }
+      } catch (error) {
+        console.error("Error fetching books: ", error);
+      } finally {
+        setLoading(false);
+      }
+    };
 
-  // Load preferences from localStorage
+    fetchBooks();
+  }, []);
+
+  // Preferences state with localStorage
   const [preferences, setPreferences] = useState(() => {
     const savedPrefs = localStorage.getItem('edushare_prefs');
-    if (savedPrefs) {
-      return JSON.parse(savedPrefs);
-    }
-    return ['CLASS12-MATH', 'BTECH-PHY101'];
+    return savedPrefs ? JSON.parse(savedPrefs) : ['CLASS12-MATH', 'BTECH-PHY101'];
   });
 
   useEffect(() => {
@@ -48,8 +59,8 @@ function App() {
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
-  // Handle listing submission with 50% discount enforcement rule
-  const handleListBook = (e) => {
+  // Handle listing submission to Firebase Cloud
+  const handleListBook = async (e) => {
     e.preventDefault();
     setErrorMsg('');
     setSuccessMsg('');
@@ -70,27 +81,35 @@ function App() {
       return;
     }
 
-    const newBook = {
-      id: Date.now(),
+    const newBookData = {
       title: formTitle,
       author: formAuthor,
       course: formCourse.toUpperCase(),
       originalPrice: orig,
       listPrice: listed,
       condition: formCondition,
-      seller: formSeller || 'student@college.edu.in'
+      seller: formSeller || 'student@college.edu.in',
+      createdAt: serverTimestamp()
     };
 
-    setBooks([newBook, ...books]);
-    setSuccessMsg('Book listed successfully! Needy students with matching preferences have been notified.');
-    
-    // Clear form
-    setFormTitle('');
-    setFormAuthor('');
-    setFormCourse('');
-    setFormOriginalPrice('');
-    setFormListPrice('');
-    setFormSeller('');
+    try {
+      const docRef = await addDoc(collection(db, "books"), newBookData);
+      const addedBook = { id: docRef.id, ...newBookData };
+      
+      setBooks([addedBook, ...books]);
+      setSuccessMsg('Book listed live on the cloud! Visible instantly on all connected PCs.');
+      
+      // Clear form
+      setFormTitle('');
+      setFormAuthor('');
+      setFormCourse('');
+      setFormOriginalPrice('');
+      setFormListPrice('');
+      setFormSeller('');
+    } catch (error) {
+      console.error("Error adding document: ", error);
+      setErrorMsg('Failed to save listing to cloud database.');
+    }
   };
 
   const addPreference = (e) => {
@@ -111,9 +130,9 @@ function App() {
       <header className="navbar">
         <div className="logo">📚 EduShareConnect India</div>
         <nav className="nav-links">
-          <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setActiveTab('feed')}>Marketplace</button>
-          <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setActiveTab('sell')}>Sell a Book</button>
-          <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setActiveTab('preferences')}>My Wishlist Alerts</button>
+          <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
+          <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell a Book</button>
+          <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>My Wishlist Alerts</button>
         </nav>
       </header>
 
@@ -124,32 +143,36 @@ function App() {
         {activeTab === 'feed' && (
           <div className="feed-section">
             <h2>Indian Academic Book Marketplace</h2>
-            <p className="subtitle">Featuring NCERT, State Board, and University textbooks at a <strong>minimum 50% discount</strong>.</p>
+            <p className="subtitle">Cloud-synced listings featuring NCERT and University textbooks at a <strong>minimum 50% discount</strong>.</p>
             
-            <div className="book-grid">
-              {books.map((book) => {
-                const discountPercent = Math.round(((book.originalPrice - book.listPrice) / book.originalPrice) * 100);
-                const isMatched = preferences.includes(book.course);
+            {loading ? (
+              <p>Loading books from cloud database...</p>
+            ) : (
+              <div className="book-grid">
+                {books.map((book) => {
+                  const discountPercent = Math.round(((book.originalPrice - book.listPrice) / book.originalPrice) * 100);
+                  const isMatched = preferences.includes(book.course);
 
-                return (
-                  <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
-                    {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
-                    <div className="course-tag">{book.course}</div>
-                    <h3>{book.title}</h3>
-                    <p className="author">by {book.author}</p>
-                    <div className="pricing">
-                      <span className="original-price">₹{book.originalPrice}</span>
-                      <span className="list-price">₹{book.listPrice}</span>
-                      <span className="discount-tag">{discountPercent}% OFF</span>
+                  return (
+                    <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
+                      {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
+                      <div className="course-tag">{book.course}</div>
+                      <h3>{book.title}</h3>
+                      <p className="author">by {book.author}</p>
+                      <div className="pricing">
+                        <span className="original-price">₹{book.originalPrice}</span>
+                        <span className="list-price">₹{book.listPrice}</span>
+                        <span className="discount-tag">{discountPercent}% OFF</span>
+                      </div>
+                      <p className="condition">Condition: <strong>{book.condition}</strong></p>
+                      <button className="contact-btn" onClick={() => alert(`Connecting with seller: ${book.seller}\nArrange campus pickup or local delivery.`)}>
+                        Contact Seller
+                      </button>
                     </div>
-                    <p className="condition">Condition: <strong>{book.condition}</strong></p>
-                    <button className="contact-btn" onClick={() => alert(`Connecting with seller: ${book.seller}\nArrange campus pickup or local delivery.`)}>
-                      Contact Seller
-                    </button>
-                  </div>
-                );
-              })}
-            </div>
+                  );
+                })}
+              </div>
+            )}
           </div>
         )}
 
@@ -157,7 +180,7 @@ function App() {
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
-            <p className="subtitle">Help fellow students save money. Listing price cannot exceed 50% of the MRP.</p>
+            <p className="subtitle">Listings go straight to the cloud database. Max price cannot exceed 50% of MRP.</p>
             
             {errorMsg && <div className="alert error">{errorMsg}</div>}
             {successMsg && <div className="alert success">{successMsg}</div>}
@@ -197,7 +220,7 @@ function App() {
                 <label>Institutional Email (School/College)</label>
                 <input type="email" value={formSeller} onChange={(e) => setFormSeller(e.target.value)} placeholder="student@college.ac.in" required />
               </div>
-              <button type="submit" className="submit-btn">Publish Listing (Enforce 50%+ Discount)</button>
+              <button type="submit" className="submit-btn">Publish to Cloud (Enforce 50%+ Discount)</button>
             </form>
           </div>
         )}

@@ -4,15 +4,20 @@ import { db } from './firebase';
 import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 function App() {
+  // Authentication State
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [loginEmail, setLoginEmail] = useState('');
+  const [loginPassword, setLoginPassword] = useState('');
+  const [currentUserEmail, setCurrentUserEmail] = useState('');
+
   const [activeTab, setItemsTab] = useState('feed');
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Current logged-in user simulation (can be changed or updated via login input)
-  const [currentUserEmail, setCurrentUserEmail] = useState('student@college.edu.in');
-
   // Fetch books from Firebase Cloud Firestore on page load
   useEffect(() => {
+    if (!isLoggedIn) return;
+
     const fetchBooks = async () => {
       try {
         const querySnapshot = await getDocs(collection(db, "books"));
@@ -37,7 +42,7 @@ function App() {
     };
 
     fetchBooks();
-  }, []);
+  }, [isLoggedIn]);
 
   // Preferences state with localStorage
   const [preferences, setPreferences] = useState(() => {
@@ -61,6 +66,17 @@ function App() {
   const [formSeller, setFormSeller] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Handle Login Submission
+  const handleLogin = (e) => {
+    e.preventDefault();
+    if (!loginEmail || !loginPassword) {
+      alert("Please enter both email and password.");
+      return;
+    }
+    setCurrentUserEmail(loginEmail.trim());
+    setIsLoggedIn(true);
+  };
 
   // Handle listing submission to Firebase Cloud
   const handleListBook = async (e) => {
@@ -118,7 +134,6 @@ function App() {
 
   // Handle deleting a book with security check (only owner can delete)
   const handleDeleteBook = async (bookId, bookSeller) => {
-    // Security check: Compare logged-in user email with book seller email
     if (bookSeller && bookSeller.toLowerCase() !== currentUserEmail.toLowerCase()) {
       alert("Unauthorized: You can only delete your own book listings!");
       return;
@@ -149,6 +164,41 @@ function App() {
     setPreferences(preferences.filter(p => p !== pref));
   };
 
+  // If user is not logged in, show Login View
+  if (!isLoggedIn) {
+    return (
+      <div className="login-container">
+        <div className="login-card">
+          <h2>📚 EduShareConnect Login</h2>
+          <p className="subtitle">Enter your institutional email & password to enter the marketplace.</p>
+          <form onSubmit={handleLogin} className="book-form">
+            <div className="form-group">
+              <label>Institutional Email</label>
+              <input 
+                type="email" 
+                value={loginEmail} 
+                onChange={(e) => setLoginEmail(e.target.value)} 
+                placeholder="student@college.ac.in" 
+                required 
+              />
+            </div>
+            <div className="form-group">
+              <label>Password</label>
+              <input 
+                type="password" 
+                value={loginPassword} 
+                onChange={(e) => setLoginPassword(e.target.value)} 
+                placeholder="••••••••" 
+                required 
+              />
+            </div>
+            <button type="submit" className="submit-btn">Login / Sign In</button>
+          </form>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="app-container">
       {/* Header */}
@@ -158,6 +208,7 @@ function App() {
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
           <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell a Book</button>
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>My Wishlist Alerts</button>
+          <button onClick={() => setIsLoggedIn(false)} style={{ background: '#e74c3c', color: 'white' }}>Logout</button>
         </nav>
       </header>
 
@@ -167,15 +218,6 @@ function App() {
         {/* User Identity Banner */}
         <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>Logged in as: <strong>{currentUserEmail}</strong></span>
-          <button 
-            onClick={() => {
-              const newEmail = prompt("Enter your institutional email address to switch user:", currentUserEmail);
-              if (newEmail) setCurrentUserEmail(newEmail.trim());
-            }} 
-            style={{ background: '#3498db', color: 'white', border: 'none', padding: '5px 10px', borderRadius: '4px', cursor: 'pointer', fontSize: '0.85rem' }}
-          >
-            Switch User Email
-          </button>
         </div>
         
         {/* TAB 1: MARKETPLACE FEED */}

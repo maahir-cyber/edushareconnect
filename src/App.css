@@ -39,6 +39,7 @@ body {
 .nav-links {
   display: flex;
   gap: 10px;
+  align-items: center;
 }
 
 .nav-links button {
@@ -359,4 +360,40 @@ body {
 
 .pref-tag button:hover {
   color: #c0392b;
+}
+
+/* Login Screen Styles */
+.login-container {
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  min-height: 100vh;
+  background-color: #f4f7f6;
+  padding: 20px;
+}
+
+.login-card {
+  background: white;
+  padding: 40px;
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+  width: 100%;
+  max-width: 420px;
+  text-align: center;
+}
+
+.login-card h2 {
+  color: #2c3e50;
+  margin-bottom: 10px;
+  font-size: 1.6rem;
+}
+
+.login-card .subtitle {
+  font-size: 0.9rem;
+  color: #7f8c8d;
+  margin-bottom: 25px;
+}
+
+.login-card .book-form {
+  text-align: left;
 }

@@ -105,10 +105,17 @@ function App() {
   const [formOriginalPrice, setFormOriginalPrice] = useState('');
   const [formListPrice, setFormListPrice] = useState('');
   const [formCondition, setFormCondition] = useState('Good');
-  const [formLocation, setFormLocation] = useState('Main Library');
+  const [formLocation, setFormLocation] = useState('');
   const [formSeller, setFormSeller] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Auto-sync form seller email when logged in
+  useEffect(() => {
+    if (currentUserEmail) {
+      setFormSeller(currentUserEmail);
+    }
+  }, [currentUserEmail]);
 
   // Handle Secure Authentication (Login or Sign Up)
   const handleAuthSubmit = async (e) => {
@@ -120,7 +127,9 @@ function App() {
       } else {
         await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       }
-      setCurrentUserEmail(loginEmail.trim());
+      const loggedEmail = loginEmail.trim();
+      setCurrentUserEmail(loggedEmail);
+      setFormSeller(loggedEmail);
       setIsLoggedIn(true);
     } catch (error) {
       alert("Authentication Error: " + error.message);
@@ -133,6 +142,7 @@ function App() {
       await signOut(auth);
       setIsLoggedIn(false);
       setLoginPassword('');
+      setCurrentUserEmail('');
     } catch (error) {
       console.error("Logout error", error);
     }
@@ -159,7 +169,12 @@ function App() {
       return;
     }
 
-    const sellerEmail = formSeller || currentUserEmail;
+    const sellerEmail = formSeller ? formSeller.trim() : currentUserEmail;
+
+    if (!sellerEmail) {
+      setErrorMsg('Please provide a valid institutional email address.');
+      return;
+    }
 
     const newBookData = {
       title: formTitle,
@@ -168,7 +183,7 @@ function App() {
       originalPrice: orig,
       listPrice: listed,
       condition: formCondition,
-      location: formLocation,
+      location: formLocation || 'Main Campus Library',
       seller: sellerEmail,
       createdAt: serverTimestamp()
     };
@@ -185,7 +200,8 @@ function App() {
       setFormCourse('');
       setFormOriginalPrice('');
       setFormListPrice('');
-      setFormSeller('');
+      setFormLocation('');
+      setFormSeller(currentUserEmail);
     } catch (error) {
       console.error("Error adding document: ", error);
       setErrorMsg('Failed to save listing to cloud database.');
@@ -607,17 +623,24 @@ function App() {
                 </select>
               </div>
               <div className="form-group">
-                <label>Campus Pickup Location</label>
-                <select value={formLocation} onChange={(e) => setFormLocation(e.target.value)}>
-                  <option value="Main Library">Main Library</option>
-                  <option value="Campus Gate 1">Campus Gate 1</option>
-                  <option value="Student Union Building">Student Union Building</option>
-                  <option value="Science Block Canteen">Science Block Canteen</option>
-                </select>
+                <label>Campus Pickup Location (Type custom address)</label>
+                <input 
+                  type="text" 
+                  value={formLocation} 
+                  onChange={(e) => setFormLocation(e.target.value)} 
+                  placeholder="e.g. Main Campus Library, Gate No. 2, Hostel 4..." 
+                  required 
+                />
               </div>
               <div className="form-group">
                 <label>Institutional Email (School/College)</label>
-                <input type="email" value={formSeller || currentUserEmail} onChange={(e) => setFormSeller(e.target.value)} placeholder="student@college.ac.in" required />
+                <input 
+                  type="email" 
+                  value={formSeller} 
+                  onChange={(e) => setFormSeller(e.target.value)} 
+                  placeholder="student@college.ac.in" 
+                  required 
+                />
               </div>
               <button type="submit" className="submit-btn">Publish to Cloud (Enforce 50%+ Discount)</button>
             </form>

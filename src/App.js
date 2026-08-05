@@ -42,7 +42,7 @@ function App() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [selectedConditionFilter, setSelectedConditionFilter] = useState('ALL');
 
-  // Direct Chat / Email Modal State
+  // Direct Gmail Composing Modal State
   const [chatBook, setChatBook] = useState(null);
   const [chatMessage, setChatMessage] = useState('');
 
@@ -520,8 +520,8 @@ function App() {
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
-                      <button className="contact-btn" onClick={() => { setChatBook(book); setChatMessage(`Hi, I am interested in your textbook "${book.title}" (${book.course}). Is it still available for pickup at ${book.location || 'Main Library'}?`); }}>
-                        Email Seller ✉️
+                      <button className="contact-btn" onClick={() => { setChatBook(book); setChatMessage(`Hi, I am interested in buying your textbook "${book.title}" (${book.course}) listed for ₹${book.listPrice}. Is it still available for pickup at ${book.location || 'Main Library'}?`); }}>
+                        Open Gmail to Seller ✉️
                       </button>
                     </div>
                   );
@@ -531,38 +531,40 @@ function App() {
           </div>
         )}
 
-        {/* Direct Email / Chat Modal with working mailto link */}
+        {/* Direct Gmail Composing Modal */}
         {chatBook && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '420px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>✉️ Email Seller Directly</h3>
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '440px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#d93025' }}>✉️ Compose Gmail to Seller</h3>
               <p style={{ fontSize: '0.9rem', color: '#555', margin: '0 0 15px 0' }}>
                 Book: <strong>{chatBook.title}</strong><br />
-                To: <a href={`mailto:${chatBook.seller}`} style={{ color: '#3f51b5', fontWeight: 'bold' }}>{chatBook.seller}</a><br />
+                To: <strong style={{ color: '#1a73e8' }}>{chatBook.seller}</strong><br />
                 Pickup Location: <strong>{chatBook.location || 'Main Library'}</strong>
               </p>
 
               <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Your Message / Pickup Inquiry</label>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Editable Email Message Draft</label>
                 <textarea 
                   value={chatMessage} 
                   onChange={(e) => setChatMessage(e.target.value)} 
-                  rows="4"
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                  rows="5"
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '0.9rem', fontFamily: 'inherit' }}
                 ></textarea>
               </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
                 <a 
-                  href={`mailto:${chatBook.seller}?subject=Inquiry about ${encodeURIComponent(chatBook.title)} on EduShare Connect&body=${encodeURIComponent(chatMessage)}`}
+                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(chatBook.seller)}&su=${encodeURIComponent(`Inquiry: ${chatBook.title} (${chatBook.course}) on EduShare Connect`)}&body=${encodeURIComponent(chatMessage)}`}
+                  target="_blank"
+                  rel="noopener noreferrer"
                   onClick={() => setChatBook(null)}
-                  style={{ background: '#27ae60', color: 'white', textDecoration: 'none', padding: '9px 18px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                  style={{ background: '#d93025', color: 'white', textDecoration: 'none', padding: '10px 18px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
                 >
-                  Open Email Client & Send 🚀
+                  Launch Gmail Web 🚀
                 </a>
                 <button 
                   onClick={() => setChatBook(null)} 
-                  style={{ background: '#ccc', color: '#333', border: 'none', padding: '9px 18px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  style={{ background: '#f1f3f4', color: '#3c4043', border: '1px solid #dadce0', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                 >
                   Cancel
                 </button>
@@ -830,7 +832,7 @@ function App() {
                     <tr style={{ borderBottom: '2px solid #ddd', color: '#555' }}>
                       <th style={{ padding: '10px' }}>Course Code</th>
                       <th style={{ padding: '10px' }}>Book Title</th>
-                      <th style={{ padding: '10px' }}>Seller Email</th>
+                      <th style={{ padding: '10px' }}>Seller Email Address</th>
                       <th style={{ padding: '10px' }}>List Price</th>
                       <th style={{ padding: '10px' }}>Pickup Location</th>
                       <th style={{ padding: '10px' }}>Actions</th>

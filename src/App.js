@@ -119,7 +119,7 @@ function App() {
   const [wishlistSuccessMsg, setWishlistSuccessMsg] = useState('');
   const [wishlistErrorMsg, setWishlistErrorMsg] = useState('');
 
-  // Form State for Listing a Book (with Photo Upload Support)
+  // Form State for Listing a Book (with True Base64 File Photo Upload)
   const [formTitle, setFormTitle] = useState('');
   const [formAuthor, setFormAuthor] = useState('');
   const [formCourse, setFormCourse] = useState('');
@@ -128,9 +128,21 @@ function App() {
   const [formCondition, setFormCondition] = useState('Good');
   const [formLocation, setFormLocation] = useState('');
   const [formSeller, setFormSeller] = useState('');
-  const [formPhoto, setFormPhoto] = useState('');
+  const [formPhotoFile, setFormPhotoFile] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
+
+  // Handle local file selection and convert to Base64 data URL for upload rendering
+  const handlePhotoFileChange = (e) => {
+    const file = e.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onloadend = () => {
+        setFormPhotoFile(reader.result);
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // Auto-sync form seller email when logged in
   useEffect(() => {
@@ -207,7 +219,7 @@ function App() {
       condition: formCondition,
       location: formLocation || 'Main Campus Library',
       seller: sellerEmail,
-      photo: formPhoto || '',
+      photo: formPhotoFile || '',
       createdAt: serverTimestamp()
     };
 
@@ -216,7 +228,7 @@ function App() {
       const addedBook = { id: docRef.id, ...newBookData };
       
       setBooks([addedBook, ...books]);
-      setSuccessMsg('Book listed live on the cloud with photo & wishlist notifications active!');
+      setSuccessMsg('Book listed live on the cloud with uploaded photo & wishlist notifications active!');
       
       setFormTitle('');
       setFormAuthor('');
@@ -224,7 +236,7 @@ function App() {
       setFormOriginalPrice('');
       setFormListPrice('');
       setFormLocation('');
-      setFormPhoto('');
+      setFormPhotoFile('');
       setFormSeller(currentUserEmail);
     } catch (error) {
       console.error("Error adding document: ", error);
@@ -818,7 +830,7 @@ function App() {
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
-            <p className="subtitle">Listings feature optional Photo Uploads & instant Wishlist / Price Drop notifications.</p>
+            <p className="subtitle">Listings feature local Photo Upload & instant Wishlist / Price Drop notifications.</p>
             
             {errorMsg && <div className="alert error">{errorMsg}</div>}
             {successMsg && <div className="alert success">{successMsg}</div>}
@@ -865,13 +877,21 @@ function App() {
                 />
               </div>
               <div className="form-group">
-                <label>Book Photo Image URL (Optional photo upload)</label>
+                <label>Upload Book Photo from Device</label>
                 <input 
-                  type="url" 
-                  value={formPhoto} 
-                  onChange={(e) => setFormPhoto(e.target.value)} 
-                  placeholder="https://example.com/book-photo.jpg" 
+                  type="file" 
+                  accept="image/*" 
+                  onChange={handlePhotoFileChange} 
+                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '6px', width: '100%', boxSizing: 'border-box', background: '#fff' }} 
                 />
+                {formPhotoFile && (
+                  <div style={{ marginTop: '10px' }}>
+                    <span style={{ fontSize: '0.8rem', color: '#27ae60', fontWeight: 'bold' }}>✓ Photo uploaded successfully:</span>
+                    <div style={{ width: '80px', height: '80px', marginTop: '5px', borderRadius: '4px', overflow: 'hidden', border: '1px solid #ddd' }}>
+                      <img src={formPhotoFile} alt="Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                    </div>
+                  </div>
+                )}
               </div>
               <div className="form-group">
                 <label>Institutional Email</label>

@@ -17,6 +17,26 @@ function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Reviews state with localStorage
+  const [reviews, setReviews] = useState(() => {
+    const savedReviews = localStorage.getItem('edushare_reviews');
+    return savedReviews ? JSON.parse(savedReviews) : [
+      { id: '1', name: 'Rahul Sharma', course: 'Class 12 Science', text: 'EduShare Connect saved me so much money on my JEE prep books! Got NCERT books at half price.', rating: '⭐⭐⭐⭐⭐' },
+      { id: '2', name: 'Priya Verma', course: 'B.Tech CSE', text: 'Amazing platform! Very easy to list unused textbooks and connect directly with campus students.', rating: '⭐⭐⭐⭐⭐' }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('edushare_reviews', JSON.stringify(reviews));
+  }, [reviews]);
+
+  // Review Form State
+  const [reviewName, setReviewName] = useState('');
+  const [reviewCourse, setReviewCourse] = useState('');
+  const [reviewText, setReviewText] = useState('');
+  const [reviewRating, setReviewRating] = useState('⭐⭐⭐⭐⭐');
+  const [reviewSuccessMsg, setReviewSuccessMsg] = useState('');
+
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
@@ -218,6 +238,29 @@ function App() {
     }
   };
 
+  // Handle publishing a student review
+  const handleReviewSubmit = (e) => {
+    e.preventDefault();
+    if (!reviewName || !reviewText) {
+      alert('Please fill out your name and review message.');
+      return;
+    }
+
+    const newReview = {
+      id: Date.now().toString(),
+      name: reviewName,
+      course: reviewCourse || 'Student',
+      text: reviewText,
+      rating: reviewRating
+    };
+
+    setReviews([newReview, ...reviews]);
+    setReviewSuccessMsg('Review published successfully! Thank you for sharing your feedback.');
+    setReviewName('');
+    setReviewCourse('');
+    setReviewText('');
+  };
+
   const removePreference = (pref) => {
     setPreferences(preferences.filter(p => p !== pref));
   };
@@ -338,6 +381,7 @@ function App() {
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>
             Wishlist {wishlistMatchCount > 0 && <span style={{ background: '#e74c3c', color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '0.75rem', marginLeft: '5px' }}>{wishlistMatchCount}</span>}
           </button>
+          <button className={activeTab === 'reviews' ? 'active' : ''} onClick={() => setItemsTab('reviews')}>Reviews</button>
           <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setItemsTab('profile')}>My Profile</button>
           {isAdmin && (
             <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setItemsTab('admin')} style={{ background: '#d35400', color: 'white' }}>
@@ -647,6 +691,58 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'reviews' && (
+          <div className="feed-section">
+            <h2>Student Reviews & Success Stories</h2>
+            <p className="subtitle">Read what other students are saying or write your own review about sharing and buying textbooks.</p>
+
+            {reviewSuccessMsg && <div className="alert success">{reviewSuccessMsg}</div>}
+
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ marginTop: 0, color: '#1a237e' }}>✍️ Write a Review</h3>
+              <form onSubmit={handleReviewSubmit} className="book-form">
+                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
+                  <div className="form-group">
+                    <label>Your Name</label>
+                    <input type="text" value={reviewName} onChange={(e) => setReviewName(e.target.value)} placeholder="Rahul Sharma" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Class / Course</label>
+                    <input type="text" value={reviewCourse} onChange={(e) => setReviewCourse(e.target.value)} placeholder="Class 12 / B.Tech" required />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Rating</label>
+                  <select value={reviewRating} onChange={(e) => setReviewRating(e.target.value)}>
+                    <option value="⭐⭐⭐⭐⭐">⭐⭐⭐⭐⭐ (5/5)</option>
+                    <option value="⭐⭐⭐⭐">⭐⭐⭐⭐ (4/5)</option>
+                    <option value="⭐⭐⭐">⭐⭐⭐ (3/5)</option>
+                  </select>
+                </div>
+                <div className="form-group">
+                  <label>Your Feedback / Experience</label>
+                  <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Share how EduShare Connect helped you..." rows="3" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} required></textarea>
+                </div>
+                <button type="submit" className="submit-btn" style={{ width: 'auto', padding: '10px 20px' }}>Publish Review</button>
+              </form>
+            </div>
+
+            <h3>Community Feedback:</h3>
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '15px' }}>
+              {reviews.map((rev) => (
+                <div key={rev.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
+                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                    <strong>{rev.name}</strong>
+                    <span style={{ fontSize: '0.8rem', background: '#e8eaf6', color: '#3f51b5', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{rev.course}</span>
+                  </div>
+                  <div style={{ marginBottom: '10px', fontSize: '0.9rem' }}>{rev.rating}</div>
+                  <p style={{ margin: 0, color: '#555', fontSize: '0.95krn', lineHeight: '1.4' }}>"{rev.text}"</p>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
         {activeTab === 'profile' && (
           <div className="feed-section">
             <h2>My User Profile & Activity Summary</h2>
@@ -692,14 +788,33 @@ function App() {
 
         {isAdmin && activeTab === 'admin' && (
           <div className="feed-section">
-            <h2>Admin Book Transactions Management</h2>
-            <p className="subtitle">Overview of all active cloud book listings and transactions. As an administrator, you can audit or delete any improper listing.</p>
+            <h2>Admin Platform Dashboard & Statistics</h2>
+            <p className="subtitle">Overview of platform metrics, textbook transactions, and sold/shared books inventory.</p>
             
+            {/* Admin Stats Cards */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #3f51b5' }}>
+                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>Total Books Listed / Sold</h4>
+                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#1a237e' }}>{books.length}</p>
+              </div>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #27ae60' }}>
+                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>Total Marketplace Value</h4>
+                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#2e7d32' }}>
+                  ₹{books.reduce((acc, curr) => acc + (Number(curr.listPrice) || 0), 0)}
+                </p>
+              </div>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #e67e22' }}>
+                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>Published Reviews</h4>
+                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#d35400' }}>{reviews.length}</p>
+              </div>
+            </div>
+
             {loading ? (
               <p>Loading transactions...</p>
             ) : (
               <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left' }}>
+                <h3 style={{ marginTop: 0, color: '#1a237e' }}>Active Cloud Book Transactions</h3>
+                <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: '15px' }}>
                   <thead>
                     <tr style={{ borderBottom: '2px solid #ddd', color: '#555' }}>
                       <th style={{ padding: '10px' }}>Course Code</th>

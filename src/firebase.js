@@ -1,19 +1,26 @@
-// src/firebase.js
+// Import the functions you need from the SDKs you need
 import { initializeApp } from "firebase/app";
+import { getAnalytics } from "firebase/analytics";
 import { getFirestore } from "firebase/firestore";
-import { getStorage } from "firebase/storage"; // 1. Import getStorage
+import { getStorage } from "firebase/storage";
+import { getAuth } from "firebase/auth";
 
+// Your web app's Firebase configuration
 const firebaseConfig = {
-  apiKey: "YOUR_API_KEY",
-  authDomain: "YOUR_AUTH_DOMAIN",
-  projectId: "YOUR_PROJECT_ID",
-  storageBucket: "YOUR_STORAGE_BUCKET",
-  messagingSenderId: "YOUR_MESSAGING_SENDER_ID",
-  appId: "YOUR_APP_ID"
+  apiKey: "AIzaSyA1yfHn5CiqMzjunCQ-y6VjPEkWmk5Bs00",
+  authDomain: "edushareconnect-cef72.firebaseapp.com",
+  projectId: "edushareconnect-cef72",
+  storageBucket: "edushareconnect-cef72.firebasestorage.app",
+  messagingSenderId: "961572219344",
+  appId: "1:961572219344:web:ae708a716621fa96c4f1d5",
+  measurementId: "G-RMK6RYNVMY"
 };
 
+// Initialize Firebase
 const app = initializeApp(firebaseConfig);
+const analytics = getAnalytics(app);
 const db = getFirestore(app);
-const storage = getStorage(app); // 2. Initialize and export storage
+const storage = getStorage(app);
+const auth = getAuth(app);
 
-export { db, storage };
+export { db, storage, auth, analytics };

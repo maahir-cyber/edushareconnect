@@ -17,6 +17,9 @@ function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
+  // Search query state for top search bar
+  const [searchQuery, setSearchQuery] = useState('');
+
   // Check if current user is admin (admin email designated as admin@edushare.ac.in)
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
 
@@ -60,7 +63,7 @@ function App() {
     localStorage.setItem('edushare_prefs', JSON.stringify(preferences));
   }, [preferences]);
 
-  // Form State for Wishlist Alert (styled like Sell a Book form)
+  // Form State for Wishlist Alert
   const [wishlistCourse, setWishlistCourse] = useState('');
   const [wishlistSubject, setWishlistSubject] = useState('');
   const [wishlistMaxPrice, setWishlistMaxPrice] = useState('');
@@ -210,6 +213,23 @@ function App() {
     setPreferences(preferences.filter(p => p !== pref));
   };
 
+  // Helper function to calculate affordability badge status based on price
+  const getAffordabilityTag = (price) => {
+    if (price <= 100) return { label: '🔥 Ultra Budget Friendly', color: '#27ae60' };
+    if (price <= 250) return { label: '💡 Very Affordable', color: '#2980b9' };
+    return { label: '📚 Standard Value', color: '#8e44ad' };
+  };
+
+  // Filter books based on search bar query (matches title, author, or course code)
+  const filteredBooks = books.filter(book => {
+    const query = searchQuery.toLowerCase();
+    return (
+      book.title.toLowerCase().includes(query) ||
+      book.author.toLowerCase().includes(query) ||
+      book.course.toLowerCase().includes(query)
+    );
+  });
+
   // If user is not logged in, show Background Image View & Auth View
   if (!isLoggedIn) {
     return (
@@ -309,6 +329,19 @@ function App() {
             Logged in as: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Administrator)</span>}
           </span>
         </div>
+
+        {/* Global Search Bar Toolbar */}
+        {activeTab === 'feed' && (
+          <div style={{ marginBottom: '20px' }}>
+            <input 
+              type="text" 
+              value={searchQuery} 
+              onChange={(e) => setSearchQuery(e.target.value)} 
+              placeholder="🔍 Search textbooks by title, author, or course code (e.g. Mathematics, Physics, CLASS12)..." 
+              style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+            />
+          </div>
+        )}
         
         {activeTab === 'feed' && (
           <div className="feed-section">
@@ -317,13 +350,16 @@ function App() {
             
             {loading ? (
               <p>Loading books from cloud database...</p>
+            ) : filteredBooks.length === 0 ? (
+              <p style={{ textAlign: 'center', color: '#777', padding: '30px' }}>No textbooks match your search query.</p>
             ) : (
               <div className="book-grid">
-                {books.map((book) => {
+                {filteredBooks.map((book) => {
                   const discountPercent = Math.round(((book.originalPrice - book.listPrice) / book.originalPrice) * 100);
                   const isMatched = preferences.includes(book.course);
                   const isOwner = book.seller && book.seller.toLowerCase() === currentUserEmail.toLowerCase();
                   const canDelete = isOwner || isAdmin;
+                  const affordability = getAffordabilityTag(book.listPrice);
 
                   return (
                     <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
@@ -338,11 +374,20 @@ function App() {
                       <div className="course-tag">{book.course}</div>
                       <h3>{book.title}</h3>
                       <p className="author">by {book.author}</p>
+                      
                       <div className="pricing">
                         <span className="original-price">₹{book.originalPrice}</span>
                         <span className="list-price">₹{book.listPrice}</span>
                         <span className="discount-tag">{discountPercent}% OFF</span>
                       </div>
+
+                      {/* Affordability Feature Badge */}
+                      <div style={{ marginBottom: '10px' }}>
+                        <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', background: affordability.color, color: 'white', fontWeight: 'bold', display: 'inline-block' }}>
+                          {affordability.label}
+                        </span>
+                      </div>
+
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
                       <button className="contact-btn" onClick={() => alert(`Connecting with seller: ${book.seller}\nArrange campus pickup or local delivery.`)}>

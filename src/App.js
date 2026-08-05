@@ -1,12 +1,15 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import { db } from './firebase';
-import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, query, where, onSnapshot } from 'firebase/firestore';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
 const auth = getAuth();
 
 function App() {
+  // Device Selection Screen State ('unselected', 'desktop', 'mobile')
+  const [deviceMode, setDeviceMode] = useState('unselected');
+
   const [isLoggedIn, setIsLoggedIn] = useState(false);
   const [isSignUpMode, setIsSignUpMode] = useState(false);
   const [loginEmail, setLoginEmail] = useState('');
@@ -42,9 +45,22 @@ function App() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [selectedConditionFilter, setSelectedConditionFilter] = useState('ALL');
 
-  // Direct Gmail Composing Modal State
+  // In-App Chat Modal State
   const [chatBook, setChatBook] = useState(null);
-  const [chatMessage, setChatMessage] = useState('');
+  const [chatMessages, setChatMessages] = useState([]);
+  const [newMessageText, setNewMessageText] = useState('');
+
+  // Donations State
+  const [donations, setDonations] = useState([
+    { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@college.ac.in', location: 'Science Block' },
+    { id: 'd2', title: 'Class 10 Foundation Mathematics', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Fair', donor: 'sneha@school.edu', location: 'Main Gate' }
+  ]);
+  const [donTitle, setDonTitle] = useState('');
+  const [donAuthor, setDonAuthor] = useState('');
+  const [donCourse, setDonCourse] = useState('');
+  const [donCondition, setDonCondition] = useState('Good');
+  const [donLocation, setDonLocation] = useState('');
+  const [donSuccessMsg, setDonSuccessMsg] = useState('');
 
   // Check if current user is admin
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
@@ -65,8 +81,8 @@ function App() {
           setBooks(booksList);
         } else {
           setBooks([
-            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in', location: 'Main Library' },
-            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in', location: 'Campus Gate 1' }
+            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in', location: 'Main Library', photo: '' },
+            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in', location: 'Campus Gate 1', photo: '' }
           ]);
         }
       } catch (error) {
@@ -79,7 +95,7 @@ function App() {
     fetchBooks();
   }, [isLoggedIn]);
 
-  // Preferences state with localStorage
+  // Preferences state with localStorage (Wishlist Alerts)
   const [preferences, setPreferences] = useState(() => {
     const savedPrefs = localStorage.getItem('edushare_prefs');
     return savedPrefs ? JSON.parse(savedPrefs) : ['CLASS12-MATH', 'BTECH-PHY101'];
@@ -89,6 +105,13 @@ function App() {
     localStorage.setItem('edushare_prefs', JSON.stringify(preferences));
   }, [preferences]);
 
+  // Price Drop Notification banner state
+  const [priceDropAlerts, setPriceDropAlerts] = useState([]);
+  useEffect(() => {
+    const matched = books.filter(b => preferences.includes(b.course) && Number(b.listPrice) <= 150);
+    setPriceDropAlerts(matched);
+  }, [books, preferences]);
+
   // Form State for Wishlist Alert
   const [wishlistCourse, setWishlistCourse] = useState('');
   const [wishlistSubject, setWishlistSubject] = useState('');
@@ -97,7 +120,7 @@ function App() {
   const [wishlistSuccessMsg, setWishlistSuccessMsg] = useState('');
   const [wishlistErrorMsg, setWishlistErrorMsg] = useState('');
 
-  // Form State for Listing a Book
+  // Form State for Listing a Book (with Photo Upload Support)
   const [formTitle, setFormTitle] = useState('');
   const [formAuthor, setFormAuthor] = useState('');
   const [formCourse, setFormCourse] = useState('');
@@ -106,6 +129,7 @@ function App() {
   const [formCondition, setFormCondition] = useState('Good');
   const [formLocation, setFormLocation] = useState('');
   const [formSeller, setFormSeller] = useState('');
+  const [formPhoto, setFormPhoto] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
 
@@ -184,6 +208,7 @@ function App() {
       condition: formCondition,
       location: formLocation || 'Main Campus Library',
       seller: sellerEmail,
+      photo: formPhoto || '',
       createdAt: serverTimestamp()
     };
 
@@ -192,7 +217,7 @@ function App() {
       const addedBook = { id: docRef.id, ...newBookData };
       
       setBooks([addedBook, ...books]);
-      setSuccessMsg('Book listed live on the cloud! Visible instantly on all connected PCs.');
+      setSuccessMsg('Book listed live on the cloud with photo & wishlist notifications active!');
       
       setFormTitle('');
       setFormAuthor('');
@@ -200,6 +225,7 @@ function App() {
       setFormOriginalPrice('');
       setFormListPrice('');
       setFormLocation('');
+      setFormPhoto('');
       setFormSeller(currentUserEmail);
     } catch (error) {
       console.error("Error adding document: ", error);
@@ -243,7 +269,7 @@ function App() {
     const formattedCode = wishlistCourse.toUpperCase();
     if (!preferences.includes(formattedCode)) {
       setPreferences([...preferences, formattedCode]);
-      setWishlistSuccessMsg('Wishlist alert registered successfully! You will see matches in the marketplace.');
+      setWishlistSuccessMsg('Wishlist alert & price drop notifications registered successfully!');
       setWishlistCourse('');
       setWishlistSubject('');
       setWishlistMaxPrice('');
@@ -280,6 +306,50 @@ function App() {
     setPreferences(preferences.filter(p => p !== pref));
   };
 
+  // Handle in-app messaging fetch & send
+  useEffect(() => {
+    if (!chatBook) return;
+    const q = query(collection(db, "messages"), where("bookId", "==", chatBook.id));
+    const unsubscribe = onSnapshot(q, (snapshot) => {
+      const msgs = snapshot.docs.map(docSnap => ({ id: docSnap.id, ...docSnap.data() }));
+      msgs.sort((a, b) => (a.createdAt?.toMillis() || 0) - (b.createdAt?.toMillis() || 0));
+      setChatMessages(msgs.length > 0 ? msgs : [
+        { id: 'm1', sender: chatBook.seller, text: `Hello! Thanks for your interest in "${chatBook.title}". Let me know when you can pick it up.`, createdAt: null }
+      ]);
+    });
+    return () => unsubscribe();
+  }, [chatBook]);
+
+  const handleSendChatMessage = async (e) => {
+    e.preventDefault();
+    if (!newMessageText.trim() || !chatBook) return;
+
+    try {
+      await addDoc(collection(db, "messages"), {
+        bookId: chatBook.id,
+        sender: currentUserEmail,
+        text: newMessageText,
+        createdAt: serverTimestamp()
+      });
+      setNewMessageText('');
+    } catch (err) {
+      console.error("Error sending message:", err);
+      // Fallback local append if offline
+      setChatMessages([...chatMessages, { id: Date.now().toString(), sender: currentUserEmail, text: newMessageText }]);
+      setNewMessageText('');
+    }
+  };
+
+  // Calculate Badge System
+  const userBookCount = books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).length;
+  const getUserBadge = () => {
+    if (userBookCount >= 5) return { title: '🌟 Elite Campus Donor & Seller', color: '#8e44ad' };
+    if (userBookCount >= 2) return { title: '⭐ Active Contributor', color: '#2980b9' };
+    if (userBookCount === 1) return { title: '🌱 Starter Seller', color: '#27ae60' };
+    return { title: '📚 New Academic Explorer', color: '#7f8c8d' };
+  };
+  const currentBadge = getUserBadge();
+
   // Helper function to calculate affordability badge status based on price
   const getAffordabilityTag = (price) => {
     if (price <= 100) return { label: '🔥 Ultra Budget Friendly', color: '#27ae60' };
@@ -293,11 +363,11 @@ function App() {
 
   // Filter books based on search query, category pills, and condition dropdown
   const filteredBooks = books.filter(book => {
-    const query = searchQuery.toLowerCase();
+    const queryStr = searchQuery.toLowerCase();
     const matchesQuery = (
-      book.title.toLowerCase().includes(query) ||
-      book.author.toLowerCase().includes(query) ||
-      book.course.toLowerCase().includes(query)
+      book.title.toLowerCase().includes(queryStr) ||
+      book.author.toLowerCase().includes(queryStr) ||
+      book.course.toLowerCase().includes(queryStr)
     );
 
     let matchesCategory = true;
@@ -310,10 +380,37 @@ function App() {
     return matchesQuery && matchesCategory && matchesCondition;
   });
 
+  // DEVICE SELECTION SCREEN (Desktop vs Mobile)
+  if (deviceMode === 'unselected') {
+    return (
+      <div className="login-page-wrapper" style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', minHeight: '100vh', background: 'linear-gradient(135deg, #1a237e 0%, #3f51b5 100%)' }}>
+        <div style={{ background: '#fff', padding: '40px', borderRadius: '12px', textAlign: 'center', maxWidth: '450px', width: '90%', boxShadow: '0 8px 30px rgba(0,0,0,0.3)' }}>
+          <h1 style={{ color: '#1a237e', marginBottom: '10px' }}>EDUSHARE CONNECT</h1>
+          <p style={{ color: '#555', marginBottom: '30px', fontSize: '1rem' }}>Please select your viewing preference to optimize your experience:</p>
+          
+          <div style={{ display: 'flex', gap: '15px', justifyContent: 'center' }}>
+            <button 
+              onClick={() => setDeviceMode('desktop')} 
+              style={{ flex: 1, padding: '15px 20px', borderRadius: '8px', border: '2px solid #3f51b5', background: '#3f51b5', color: '#fff', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: '0.2s' }}
+            >
+              💻 Desktop View
+            </button>
+            <button 
+              onClick={() => setDeviceMode('mobile')} 
+              style={{ flex: 1, padding: '15px 20px', borderRadius: '8px', border: '2px solid #3f51b5', background: '#fff', color: '#3f51b5', cursor: 'pointer', fontWeight: 'bold', fontSize: '1rem', transition: '0.2s' }}
+            >
+              📱 Mobile View
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   // If user is not logged in, show Background Image View & Auth View
   if (!isLoggedIn) {
     return (
-      <div className="login-page-wrapper">
+      <div className="login-page-wrapper" style={{ maxWidth: deviceMode === 'mobile' ? '480px' : '100%', margin: deviceMode === 'mobile' ? '20px auto' : '0' }}>
         <div className="login-container">
           
           <div className="scrollable-hero-card">
@@ -369,6 +466,12 @@ function App() {
               </button>
             </form>
 
+            <div style={{ marginTop: '10px', textAlign: 'center' }}>
+              <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
+                Switch Device Mode ({deviceMode})
+              </button>
+            </div>
+
             <p style={{ marginTop: '15px', fontSize: '0.85rem', textAlign: 'center' }}>
               {isSignUpMode ? 'Already have an account? ' : "Don't have an account? "}
               <button 
@@ -387,20 +490,21 @@ function App() {
   }
 
   return (
-    <div className="app-container">
-      <header className="navbar">
-        <div className="logo">📚 EduShareConnect India {isAdmin && '⭐ [ADMIN PORTAL]' }</div>
-        <nav className="nav-links">
+    <div className="app-container" style={{ maxWidth: deviceMode === 'mobile' ? '480px' : '100%', margin: deviceMode === 'mobile' ? '0 auto' : '0', boxShadow: deviceMode === 'mobile' ? '0 0 20px rgba(0,0,0,0.1)' : 'none' }}>
+      <header className="navbar" style={{ flexDirection: deviceMode === 'mobile' ? 'column' : 'row', gap: deviceMode === 'mobile' ? '10px' : '0' }}>
+        <div className="logo">📚 EduShareConnect {isAdmin && '⭐ [ADMIN]' }</div>
+        <nav className="nav-links" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
-          <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell a Book</button>
+          <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell Book</button>
+          <button className={activeTab === 'donations' ? 'active' : ''} onClick={() => setItemsTab('donations')}>Donations 🎁</button>
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>
             Wishlist {wishlistMatchCount > 0 && <span style={{ background: '#e74c3c', color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '0.75rem', marginLeft: '5px' }}>{wishlistMatchCount}</span>}
           </button>
           <button className={activeTab === 'reviews' ? 'active' : ''} onClick={() => setItemsTab('reviews')}>Reviews</button>
-          <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setItemsTab('profile')}>My Profile</button>
+          <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setItemsTab('profile')}>Profile</button>
           {isAdmin && (
             <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setItemsTab('admin')} style={{ background: '#d35400', color: 'white' }}>
-              Admin Transactions
+              Admin
             </button>
           )}
           <button onClick={handleLogout} style={{ background: '#e74c3c', color: 'white' }}>Logout</button>
@@ -408,18 +512,26 @@ function App() {
       </header>
 
       <main className="content">
-        <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }}>
+        <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>
-            Logged in as: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Administrator)</span>}
+            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
           </span>
+          <div>
+            <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: currentBadge.color, color: 'white', fontWeight: 'bold' }}>
+              {currentBadge.title}
+            </span>
+          </div>
         </div>
 
-        {/* Wishlist Match Notification Banner */}
-        {activeTab === 'feed' && wishlistMatchCount > 0 && (
-          <div style={{ background: '#e3f2fd', borderLeft: '4px solid #2196f3', padding: '12px 16px', borderRadius: '4px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.9rem', color: '#0d47a1' }}>
-              🎯 <strong>Wishlist Alert!</strong> You have <strong>{wishlistMatchCount}</strong> available book(s) matching your saved course alerts. Look for the orange badge!
-            </span>
+        {/* Price Drop & Wishlist Alerts Notification Banner */}
+        {activeTab === 'feed' && priceDropAlerts.length > 0 && (
+          <div style={{ background: '#e8f5e9', borderLeft: '4px solid #27ae60', padding: '12px 16px', borderRadius: '4px', marginBottom: '20px' }}>
+            <div style={{ fontWeight: 'bold', color: '#2e7d32', marginBottom: '4px' }}>🔔 Price Drop & Wishlist Alert Notification!</div>
+            {priceDropAlerts.map(item => (
+              <div key={item.id} style={{ fontSize: '0.85rem', color: '#333', marginTop: '2px' }}>
+                • <strong>{item.title}</strong> matching your wishlist alert has dropped to <span style={{ color: '#27ae60', fontWeight: 'bold' }}>₹{item.listPrice}</span>!
+              </div>
+            ))}
           </div>
         )}
 
@@ -430,12 +542,12 @@ function App() {
               type="text" 
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
-              placeholder="🔍 Search textbooks by title, author, or course code (e.g. Mathematics, Physics, CLASS12)..." 
+              placeholder="🔍 Search textbooks by title, author, or course code..." 
               style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '12px' }}
             />
             
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
-              <div style={{ display: 'flex', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px', flexWrap: 'wrap' }}>
                 <button 
                   onClick={() => setSelectedCategoryFilter('ALL')} 
                   style={{ padding: '6px 14px', borderRadius: '16px', border: 'none', background: selectedCategoryFilter === 'ALL' ? '#3f51b5' : '#e0e0e0', color: selectedCategoryFilter === 'ALL' ? '#fff' : '#333', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
@@ -446,7 +558,7 @@ function App() {
                   onClick={() => setSelectedCategoryFilter('CLASS')} 
                   style={{ padding: '6px 14px', borderRadius: '16px', border: 'none', background: selectedCategoryFilter === 'CLASS' ? '#3f51b5' : '#e0e0e0', color: selectedCategoryFilter === 'CLASS' ? '#fff' : '#333', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
                 >
-                  School / Board (CLASS)
+                  School / Board
                 </button>
                 <button 
                   onClick={() => setSelectedCategoryFilter('BTECH')} 
@@ -462,7 +574,7 @@ function App() {
                   onChange={(e) => setSelectedConditionFilter(e.target.value)}
                   style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem', background: '#fff' }}
                 >
-                  <option value="ALL">Filter by Condition: All</option>
+                  <option value="ALL">Condition: All</option>
                   <option value="Like New">Like New</option>
                   <option value="Good">Good</option>
                   <option value="Fair">Fair</option>
@@ -475,7 +587,7 @@ function App() {
         {activeTab === 'feed' && (
           <div className="feed-section">
             <h2>Indian Academic Book Marketplace</h2>
-            <p className="subtitle">Cloud-synced listings featuring NCERT and University textbooks at a <strong>minimum 50% discount</strong>.</p>
+            <p className="subtitle">Cloud-synced listings with photo uploads, in-app live chat, and price drop alerts.</p>
             
             {loading ? (
               <p>Loading books from cloud database...</p>
@@ -495,9 +607,20 @@ function App() {
                       {isMatched && <span className="match-badge">🎯 Wishlist Match!</span>}
                       
                       {canDelete && (
-                        <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title={isAdmin ? "Admin Delete Transaction" : "Remove My Listing"}>
+                        <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove Listing">
                           &times;
                         </button>
+                      )}
+
+                      {/* Display Uploaded Book Photo if available */}
+                      {book.photo ? (
+                        <div style={{ width: '100%', height: '140px', background: '#f5f5f5', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
+                          <img src={book.photo} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                        </div>
+                      ) : (
+                        <div style={{ width: '100%', height: '80px', background: '#eef2f7', borderRadius: '6px', marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#888', fontSize: '0.8rem' }}>
+                          📖 Textbook Photo
+                        </div>
                       )}
 
                       <div className="course-tag">{book.course}</div>
@@ -510,7 +633,6 @@ function App() {
                         <span className="discount-tag">{discountPercent}% OFF</span>
                       </div>
 
-                      {/* Affordability Feature Badge */}
                       <div style={{ marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', background: affordability.color, color: 'white', fontWeight: 'bold', display: 'inline-block' }}>
                           {affordability.label}
@@ -520,8 +642,9 @@ function App() {
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
-                      <button className="contact-btn" onClick={() => { setChatBook(book); setChatMessage(`Hi, I am interested in buying your textbook "${book.title}" (${book.course}) listed for ₹${book.listPrice}. Is it still available for pickup at ${book.location || 'Main Library'}?`); }}>
-                        Open Gmail to Seller ✉️
+                      
+                      <button className="contact-btn" onClick={() => setChatBook(book)}>
+                        In-App Live Chat 💬
                       </button>
                     </div>
                   );
@@ -531,44 +654,109 @@ function App() {
           </div>
         )}
 
-        {/* Direct Gmail Composing Modal */}
+        {/* IN-APP CHAT MODAL */}
         {chatBook && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '440px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#d93025' }}>✉️ Compose Gmail to Seller</h3>
-              <p style={{ fontSize: '0.9rem', color: '#555', margin: '0 0 15px 0' }}>
-                Book: <strong>{chatBook.title}</strong><br />
-                To: <strong style={{ color: '#1a73e8' }}>{chatBook.seller}</strong><br />
-                Pickup Location: <strong>{chatBook.location || 'Main Library'}</strong>
-              </p>
-
-              <div style={{ marginBottom: '15px' }}>
-                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Editable Email Message Draft</label>
-                <textarea 
-                  value={chatMessage} 
-                  onChange={(e) => setChatMessage(e.target.value)} 
-                  rows="5"
-                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box', fontSize: '0.9rem', fontFamily: 'inherit' }}
-                ></textarea>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', width: '450px', maxWidth: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '15px' }}>
+                <div>
+                  <h3 style={{ margin: 0, color: '#1a237e', fontSize: '1.1rem' }}>💬 In-App Chat: {chatBook.title}</h3>
+                  <span style={{ fontSize: '0.8rem', color: '#666' }}>Seller: {chatBook.seller} | Location: {chatBook.location}</span>
+                </div>
+                <button onClick={() => setChatBook(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', fontWeight: 'bold' }}>&times;</button>
               </div>
 
-              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                <a 
-                  href={`https://mail.google.com/mail/?view=cm&fs=1&to=${encodeURIComponent(chatBook.seller)}&su=${encodeURIComponent(`Inquiry: ${chatBook.title} (${chatBook.course}) on EduShare Connect`)}&body=${encodeURIComponent(chatMessage)}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  onClick={() => setChatBook(null)}
-                  style={{ background: '#d93025', color: 'white', textDecoration: 'none', padding: '10px 18px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem', display: 'inline-flex', alignItems: 'center', gap: '6px' }}
-                >
-                  Launch Gmail Web 🚀
-                </a>
-                <button 
-                  onClick={() => setChatBook(null)} 
-                  style={{ background: '#f1f3f4', color: '#3c4043', border: '1px solid #dadce0', padding: '10px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                >
-                  Cancel
+              {/* Chat Message History Box */}
+              <div style={{ flex: 1, overflowY: 'auto', background: '#f9f9f9', padding: '12px', borderRadius: '6px', marginBottom: '15px', minHeight: '220px', maxHeight: '300px' }}>
+                {chatMessages.map((msg, idx) => {
+                  const isMe = msg.sender === currentUserEmail;
+                  return (
+                    <div key={msg.id || idx} style={{ marginBottom: '10px', textAlign: isMe ? 'right' : 'left' }}>
+                      <div style={{ fontSize: '0.75rem', color: '#888', marginBottom: '2px' }}>{msg.sender}</div>
+                      <div style={{ display: 'inline-block', background: isMe ? '#3f51b5' : '#e0e0e0', color: isMe ? '#fff' : '#333', padding: '8px 12px', borderRadius: '8px', fontSize: '0.9rem', maxWidth: '80%', wordBreak: 'break-word', textAlign: 'left' }}>
+                        {msg.text}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+
+              {/* Chat Input Form */}
+              <form onSubmit={handleSendChatMessage} style={{ display: 'flex', gap: '8px' }}>
+                <input 
+                  type="text" 
+                  value={newMessageText} 
+                  onChange={(e) => setNewMessageText(e.target.value)} 
+                  placeholder="Type your chat message or meetup offer..." 
+                  style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem' }}
+                  required
+                />
+                <button type="submit" style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '10px 16px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  Send
                 </button>
-              </div>
+              </form>
+            </div>
+          </div>
+        )}
+
+        {/* DONATIONS / FREE GIVEAWAY PAGE */}
+        {activeTab === 'donations' && (
+          <div className="feed-section">
+            <h2>🎁 Free Book Donations & Giveaways</h2>
+            <p className="subtitle">Students giving away old textbooks and notes 100% free of charge to juniors in need.</p>
+
+            {donSuccessMsg && <div className="alert success">{donSuccessMsg}</div>}
+
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ marginTop: 0, color: '#1a237e' }}>📦 Donate a Book / Notes for Free</h3>
+              <form onSubmit={(e) => {
+                e.preventDefault();
+                if (!donTitle || !donCourse) { alert('Please fill required fields'); return; }
+                const newDon = { id: Date.now().toString(), title: donTitle, author: donAuthor || 'Various', course: donCourse.toUpperCase(), condition: donCondition, donor: currentUserEmail, location: donLocation || 'Library' };
+                setDonations([newDon, ...donations]);
+                setDonSuccessMsg('Book donation listed successfully! Thank you for supporting peer education.');
+                setDonTitle(''); setDonAuthor(''); setDonCourse(''); setDonLocation('');
+              }} className="book-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Book / Notes Title</label>
+                    <input type="text" value={donTitle} onChange={(e) => setDonTitle(e.target.value)} placeholder="e.g. Physics handwritten notes" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Course Code</label>
+                    <input type="text" value={donCourse} onChange={(e) => setDonCourse(e.target.value)} placeholder="e.g. BTECH-PHY101" required />
+                  </div>
+                </div>
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Author / Creator</label>
+                    <input type="text" value={donAuthor} onChange={(e) => setDonAuthor(e.target.value)} placeholder="e.g. Senior Batch" />
+                  </div>
+                  <div className="form-group">
+                    <label>Pickup Location</label>
+                    <input type="text" value={donLocation} onChange={(e) => setDonLocation(e.target.value)} placeholder="Hostel 2 / Main Library" required />
+                  </div>
+                </div>
+                <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>List Free Donation 🎁</button>
+              </form>
+            </div>
+
+            <h3>Available Free Giveaways:</h3>
+            <div className="book-grid" style={{ marginTop: '15px' }}>
+              {donations.map((item) => (
+                <div key={item.id} className="book-card" style={{ borderTop: '4px solid #27ae60' }}>
+                  <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
+                  <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
+                  <h3>{item.title}</h3>
+                  <p className="author">by {item.author}</p>
+                  <p className="condition">Condition: <strong>{item.condition}</strong></p>
+                  <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{item.location}</strong></p>
+                  <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Donor: {item.donor}</p>
+                  <button className="contact-btn" style={{ background: '#27ae60' }} onClick={() => alert(`Contact donor at ${item.donor} to claim this free donation!`)}>
+                    Claim Free Book 🤝
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -576,7 +764,7 @@ function App() {
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
-            <p className="subtitle">Listings go straight to the cloud database under your email. Max price cannot exceed 50% of MRP.</p>
+            <p className="subtitle">Listings feature optional Photo Uploads & instant Wishlist / Price Drop notifications.</p>
             
             {errorMsg && <div className="alert error">{errorMsg}</div>}
             {successMsg && <div className="alert success">{successMsg}</div>}
@@ -613,17 +801,26 @@ function App() {
                 </select>
               </div>
               <div className="form-group">
-                <label>Campus Pickup Location (Type custom address)</label>
+                <label>Campus Pickup Address / Location</label>
                 <input 
                   type="text" 
                   value={formLocation} 
                   onChange={(e) => setFormLocation(e.target.value)} 
-                  placeholder="e.g. Main Campus Library, Gate No. 2, Hostel 4..." 
+                  placeholder="e.g. Main Campus Library, Gate No. 2..." 
                   required 
                 />
               </div>
               <div className="form-group">
-                <label>Institutional Email (School/College)</label>
+                <label>Book Photo Image URL (Optional photo upload)</label>
+                <input 
+                  type="url" 
+                  value={formPhoto} 
+                  onChange={(e) => setFormPhoto(e.target.value)} 
+                  placeholder="https://example.com/book-photo.jpg" 
+                />
+              </div>
+              <div className="form-group">
+                <label>Institutional Email</label>
                 <input 
                   type="email" 
                   value={formSeller} 
@@ -639,8 +836,8 @@ function App() {
 
         {activeTab === 'preferences' && (
           <div className="form-section">
-            <h2>Create Wishlist & Alert Profile</h2>
-            <p className="subtitle">Fill out this form to submit your required course code and get instantly matched when discounted books are listed.</p>
+            <h2>Wishlist & Price Drop Alert Notifications</h2>
+            <p className="subtitle">Add course alerts to receive instant notifications when books are listed or prices drop.</p>
 
             {wishlistErrorMsg && <div className="alert error">{wishlistErrorMsg}</div>}
             {wishlistSuccessMsg && <div className="alert success">{wishlistSuccessMsg}</div>}
@@ -674,17 +871,7 @@ function App() {
                   placeholder="e.g. 200" 
                 />
               </div>
-              <div className="form-group">
-                <label>Additional Notes / Edition Required</label>
-                <textarea 
-                  value={wishlistNotes} 
-                  onChange={(e) => setWishlistNotes(e.target.value)} 
-                  placeholder="e.g. Prefer latest publication year" 
-                  style={{ width: '100%', padding: '10px', border: '1px solid #ccc', borderRadius: '6px', boxSizing: 'border-box' }}
-                  rows="3"
-                ></textarea>
-              </div>
-              <button type="submit" className="submit-btn">Save Wishlist Alert Profile</button>
+              <button type="submit" className="submit-btn">Enable Wishlist & Price Drop Alerts 🔔</button>
             </form>
 
             <div style={{ marginTop: '30px' }}>
@@ -758,15 +945,23 @@ function App() {
 
         {activeTab === 'profile' && (
           <div className="feed-section">
-            <h2>My User Profile & Activity Summary</h2>
+            <h2>My User Profile & Badge Status</h2>
             <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong></p>
+
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px' }}>
+              <div>
+                <h3 style={{ margin: '0 0 5px 0', color: '#1a237e' }}>🏆 Earned Contributor Badge</h3>
+                <p style={{ margin: 0, color: '#555', fontSize: '0.9rem' }}>Based on your active cloud textbook listings and community sharing activity.</p>
+              </div>
+              <div style={{ padding: '10px 20px', borderRadius: '8px', background: currentBadge.color, color: 'white', fontWeight: 'bold', fontSize: '1rem' }}>
+                {currentBadge.title}
+              </div>
+            </div>
 
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
                 <h3 style={{ margin: '0 0 10px 0', color: '#3f51b5' }}>📦 Active Listings</h3>
-                <p style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '0', color: '#333' }}>
-                  {books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).length}
-                </p>
+                <p style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '0', color: '#333' }}>{userBookCount}</p>
               </div>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
                 <h3 style={{ margin: '0 0 10px 0', color: '#3f51b5' }}>🎯 Wishlist Alerts</h3>
@@ -777,13 +972,18 @@ function App() {
             <h3>Your Shared Book Listings:</h3>
             <div className="book-grid" style={{ marginTop: '15px' }}>
               {books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).length === 0 ? (
-                <p style={{ color: '#777' }}>You have not listed any textbooks yet. Head over to "Sell a Book" to share one!</p>
+                <p style={{ color: '#777' }}>You have not listed any textbooks yet. Head over to "Sell Book" to share one!</p>
               ) : (
                 books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).map(book => (
                   <div key={book.id} className="book-card">
-                    <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove My Listing">
+                    <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove Listing">
                       &times;
                     </button>
+                    {book.photo && (
+                      <div style={{ width: '100%', height: '120px', background: '#f5f5f5', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden' }}>
+                        <img src={book.photo} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
+                      </div>
+                    )}
                     <div className="course-tag">{book.course}</div>
                     <h3>{book.title}</h3>
                     <p className="author">by {book.author}</p>
@@ -804,10 +1004,9 @@ function App() {
             <h2>Admin Platform Dashboard & Statistics</h2>
             <p className="subtitle">Overview of platform metrics, textbook transactions, and sold/shared books inventory.</p>
             
-            {/* Admin Stats Cards */}
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #3f51b5' }}>
-                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>Total Books Listed / Sold</h4>
+                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>Total Books Listed</h4>
                 <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#1a237e' }}>{books.length}</p>
               </div>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #27ae60' }}>
@@ -832,7 +1031,7 @@ function App() {
                     <tr style={{ borderBottom: '2px solid #ddd', color: '#555' }}>
                       <th style={{ padding: '10px' }}>Course Code</th>
                       <th style={{ padding: '10px' }}>Book Title</th>
-                      <th style={{ padding: '10px' }}>Seller Email Address</th>
+                      <th style={{ padding: '10px' }}>Seller Email</th>
                       <th style={{ padding: '10px' }}>List Price</th>
                       <th style={{ padding: '10px' }}>Pickup Location</th>
                       <th style={{ padding: '10px' }}>Actions</th>
@@ -851,7 +1050,7 @@ function App() {
                             onClick={() => handleDeleteBook(book.id, book.seller)} 
                             style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                           >
-                            Delete Transaction
+                            Delete
                           </button>
                         </td>
                       </tr>

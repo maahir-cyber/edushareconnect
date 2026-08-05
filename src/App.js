@@ -50,11 +50,19 @@ function App() {
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessageText, setNewMessageText] = useState('');
 
-  // Donations State
-  const [donations, setDonations] = useState([
-    { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@college.ac.in', location: 'Science Block' },
-    { id: 'd2', title: 'Class 10 Foundation Mathematics', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Fair', donor: 'sneha@school.edu', location: 'Main Gate' }
-  ]);
+  // Donations State with localStorage persistence
+  const [donations, setDonations] = useState(() => {
+    const savedDonations = localStorage.getItem('edushare_donations');
+    return savedDonations ? JSON.parse(savedDonations) : [
+      { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@college.ac.in', location: 'Science Block' },
+      { id: 'd2', title: 'Class 10 Foundation Mathematics', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Fair', donor: 'sneha@school.edu', location: 'Main Gate' }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('edushare_donations', JSON.stringify(donations));
+  }, [donations]);
+
   const [donTitle, setDonTitle] = useState('');
   const [donAuthor, setDonAuthor] = useState('');
   const [donCourse, setDonCourse] = useState('');
@@ -263,6 +271,20 @@ function App() {
         console.error("Error deleting document: ", error);
         alert("Failed to delete the listing from the database.");
       }
+    }
+  };
+
+  // Handle deleting a free book donation / giveaway
+  const handleDeleteDonation = (donId, donorEmail) => {
+    const isOwner = donorEmail && donorEmail.toLowerCase() === currentUserEmail.toLowerCase();
+    
+    if (!isOwner && !isAdmin) {
+      alert("Unauthorized: You can only delete your own free giveaways unless you are the admin!");
+      return;
+    }
+
+    if (window.confirm("Are you sure you want to remove this free giveaway?")) {
+      setDonations(donations.filter(item => item.id !== donId));
     }
   };
 
@@ -809,20 +831,30 @@ function App() {
 
             <h3>Available Free Giveaways:</h3>
             <div className="book-grid" style={{ marginTop: '15px' }}>
-              {donations.map((item) => (
-                <div key={item.id} className="book-card" style={{ borderTop: '4px solid #27ae60' }}>
-                  <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
-                  <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
-                  <h3>{item.title}</h3>
-                  <p className="author">by {item.author}</p>
-                  <p className="condition">Condition: <strong>{item.condition}</strong></p>
-                  <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{item.location}</strong></p>
-                  <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Donor: {item.donor}</p>
-                  <button className="contact-btn" style={{ background: '#27ae60' }} onClick={() => alert(`Contact donor at ${item.donor} to claim this free donation!`)}>
-                    Claim Free Book 🤝
-                  </button>
-                </div>
-              ))}
+              {donations.map((item) => {
+                const isOwner = item.donor && item.donor.toLowerCase() === currentUserEmail.toLowerCase();
+                const canDeleteDon = isOwner || isAdmin;
+
+                return (
+                  <div key={item.id} className="book-card" style={{ borderTop: '4px solid #27ae60', position: 'relative' }}>
+                    {canDeleteDon && (
+                      <button className="delete-btn" onClick={() => handleDeleteDonation(item.id, item.donor)} title="Remove Giveaway">
+                        &times;
+                      </button>
+                    )}
+                    <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
+                    <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
+                    <h3>{item.title}</h3>
+                    <p className="author">by {item.author}</p>
+                    <p className="condition">Condition: <strong>{item.condition}</strong></p>
+                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{item.location}</strong></p>
+                    <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Donor: {item.donor}</p>
+                    <button className="contact-btn" style={{ background: '#27ae60' }} onClick={() => alert(`Contact donor at ${item.donor} to claim this free donation!`)}>
+                      Claim Free Book 🤝
+                    </button>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1049,7 +1081,7 @@ function App() {
                 <p style={{ color: '#777' }}>You have not listed any textbooks yet. Head over to "Sell Book" to share one!</p>
               ) : (
                 books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).map(book => (
-                  <div key={book.id} className="book-card">
+                  <div key={book.id} className="book-card" style={{ position: 'relative' }}>
                     <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove Listing">
                       &times;
                     </button>
@@ -1066,6 +1098,27 @@ function App() {
                     </div>
                     <p className="condition">Condition: <strong>{book.condition}</strong></p>
                     <p style={{ fontSize: '0.8rem', color: '#555' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
+                  </div>
+                ))
+              )}
+            </div>
+
+            <h3 style={{ marginTop: '30px' }}>Your Free Book Giveaways:</h3>
+            <div className="book-grid" style={{ marginTop: '15px' }}>
+              {donations.filter(d => d.donor && d.donor.toLowerCase() === currentUserEmail.toLowerCase()).length === 0 ? (
+                <p style={{ color: '#777' }}>You have not listed any free giveaways yet.</p>
+              ) : (
+                donations.filter(d => d.donor && d.donor.toLowerCase() === currentUserEmail.toLowerCase()).map(item => (
+                  <div key={item.id} className="book-card" style={{ borderTop: '4px solid #27ae60', position: 'relative' }}>
+                    <button className="delete-btn" onClick={() => handleDeleteDonation(item.id, item.donor)} title="Remove Giveaway">
+                      &times;
+                    </button>
+                    <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
+                    <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
+                    <h3>{item.title}</h3>
+                    <p className="author">by {item.author}</p>
+                    <p className="condition">Condition: <strong>{item.condition}</strong></p>
+                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{item.location}</strong></p>
                   </div>
                 ))
               )}
@@ -1133,6 +1186,46 @@ function App() {
                 </table>
               </div>
             )}
+
+            {/* Free Giveaways Table for Admins */}
+            <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginTop: '30px' }}>
+              <h3 style={{ marginTop: 0, color: '#27ae60' }}>🎁 Active Free Book Giveaways ({donations.length})</h3>
+              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: '15px' }}>
+                <thead>
+                  <tr style={{ borderBottom: '2px solid #ddd', color: '#555' }}>
+                    <th style={{ padding: '10px' }}>Course Code</th>
+                    <th style={{ padding: '10px' }}>Title</th>
+                    <th style={{ padding: '10px' }}>Donor Email</th>
+                    <th style={{ padding: '10px' }}>Pickup Location</th>
+                    <th style={{ padding: '10px' }}>Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {donations.length === 0 ? (
+                    <tr>
+                      <td colSpan="5" style={{ padding: '15px', textAlign: 'center', color: '#777' }}>No active free giveaways.</td>
+                    </tr>
+                  ) : (
+                    donations.map((item) => (
+                      <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
+                        <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.course}</td>
+                        <td style={{ padding: '10px' }}>{item.title}</td>
+                        <td style={{ padding: '10px', color: '#666' }}>{item.donor}</td>
+                        <td style={{ padding: '10px' }}>{item.location}</td>
+                        <td style={{ padding: '10px' }}>
+                          <button 
+                            onClick={() => handleDeleteDonation(item.id, item.donor)} 
+                            style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                          >
+                            Delete
+                          </button>
+                        </td>
+                      </tr>
+                    ))
+                  )}
+                </tbody>
+              </table>
+            </div>
           </div>
         )}
 

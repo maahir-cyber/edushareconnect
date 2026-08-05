@@ -409,8 +409,9 @@ function App() {
   if (!isLoggedIn) {
     return (
       <div className="login-page-wrapper" style={{ maxWidth: deviceMode === 'mobile' ? '480px' : '100%', margin: deviceMode === 'mobile' ? '20px auto' : '0' }}>
-        <div className="login-container">
+        <div className="login-container" style={{ flexDirection: deviceMode === 'mobile' ? 'column' : 'row' }}>
           
+          {/* Hero Card */}
           <div className="scrollable-hero-card">
             <div className="hero-badge">✨ Empowering Education Through Collaboration</div>
             <h1 className="hero-title">EDUSHARE CONNECT</h1>
@@ -431,56 +432,111 @@ function App() {
                 <p>EduShare Connect is an innovative platform empowering learners to collaborate, share knowledge, and access mentorship. We build bridges for academic and personal growth.</p>
               </div>
             </div>
+            
+            {/* IN MOBILE VIEW: RENDER LOGIN CARD RIGHT UNDER THE VISION / HERO CONTENT BOX */}
+            {deviceMode === 'mobile' && (
+              <div className="login-card" style={{ marginTop: '20px', width: '100%', boxSizing: 'border-box' }}>
+                <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
+                <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
+                
+                <form onSubmit={handleAuthSubmit} className="book-form">
+                  <div className="form-group">
+                    <label>Email Address</label>
+                    <input 
+                      type="email" 
+                      value={loginEmail} 
+                      onChange={(e) => setLoginEmail(e.target.value)} 
+                      placeholder="student@college.ac.in (or admin@edushare.ac.in)" 
+                      required 
+                    />
+                  </div>
+                  <div className="form-group">
+                    <label>Password</label>
+                    <input 
+                      type="password" 
+                      value={loginPassword} 
+                      onChange={(e) => setLoginPassword(e.target.value)} 
+                      placeholder="••••••••" 
+                      required 
+                    />
+                  </div>
+                  <button type="submit" className="submit-btn">
+                    {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
+                  </button>
+                </form>
+
+                <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                  <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
+                    Switch Device Mode ({deviceMode})
+                  </button>
+                </div>
+
+                <p style={{ marginTop: '15px', fontSize: '0.85rem', textAlign: 'center' }}>
+                  {isSignUpMode ? 'Already have an account? ' : "Don't have an account? "}
+                  <button 
+                    type="button" 
+                    onClick={() => setIsSignUpMode(!isSignUpMode)} 
+                    style={{ background: 'none', border: 'none', color: '#3498db', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+                  >
+                    {isSignUpMode ? 'Login here' : 'Sign up here'}
+                  </button>
+                </p>
+              </div>
+            )}
+
             <p className="scroll-hint">⬇️ Scroll inside to read more & sign in below ⬇️</p>
           </div>
 
-          <div className="login-card">
-            <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
-            <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
-            
-            <form onSubmit={handleAuthSubmit} className="book-form">
-              <div className="form-group">
-                <label>Email Address</label>
-                <input 
-                  type="email" 
-                  value={loginEmail} 
-                  onChange={(e) => setLoginEmail(e.target.value)} 
-                  placeholder="student@college.ac.in (or admin@edushare.ac.in)" 
-                  required 
-                />
-              </div>
-              <div className="form-group">
-                <label>Password</label>
-                <input 
-                  type="password" 
-                  value={loginPassword} 
-                  onChange={(e) => setLoginPassword(e.target.value)} 
-                  placeholder="••••••••" 
-                  required 
-                />
-              </div>
-              <button type="submit" className="submit-btn">
-                {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
-              </button>
-            </form>
+          {/* IN DESKTOP VIEW: RENDER LOGIN CARD SIDE-BY-SIDE */}
+          {deviceMode !== 'mobile' && (
+            <div className="login-card">
+              <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
+              <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
+              
+              <form onSubmit={handleAuthSubmit} className="book-form">
+                <div className="form-group">
+                  <label>Email Address</label>
+                  <input 
+                    type="email" 
+                    value={loginEmail} 
+                    onChange={(e) => setLoginEmail(e.target.value)} 
+                    placeholder="student@college.ac.in (or admin@edushare.ac.in)" 
+                    required 
+                  />
+                </div>
+                <div className="form-group">
+                  <label>Password</label>
+                  <input 
+                    type="password" 
+                    value={loginPassword} 
+                    onChange={(e) => setLoginPassword(e.target.value)} 
+                    placeholder="••••••••" 
+                    required 
+                  />
+                </div>
+                <button type="submit" className="submit-btn">
+                  {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
+                </button>
+              </form>
 
-            <div style={{ marginTop: '10px', textAlign: 'center' }}>
-              <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
-                Switch Device Mode ({deviceMode})
-              </button>
+              <div style={{ marginTop: '10px', textAlign: 'center' }}>
+                <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
+                  Switch Device Mode ({deviceMode})
+                </button>
+              </div>
+
+              <p style={{ marginTop: '15px', fontSize: '0.85rem', textAlign: 'center' }}>
+                {isSignUpMode ? 'Already have an account? ' : "Don't have an account? "}
+                <button 
+                  type="button" 
+                  onClick={() => setIsSignUpMode(!isSignUpMode)} 
+                  style={{ background: 'none', border: 'none', color: '#3498db', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
+                >
+                  {isSignUpMode ? 'Login here' : 'Sign up here'}
+                </button>
+              </p>
             </div>
-
-            <p style={{ marginTop: '15px', fontSize: '0.85rem', textAlign: 'center' }}>
-              {isSignUpMode ? 'Already have an account? ' : "Don't have an account? "}
-              <button 
-                type="button" 
-                onClick={() => setIsSignUpMode(!isSignUpMode)} 
-                style={{ background: 'none', border: 'none', color: '#3498db', cursor: 'pointer', fontWeight: 'bold', textDecoration: 'underline' }}
-              >
-                {isSignUpMode ? 'Login here' : 'Sign up here'}
-              </button>
-            </p>
-          </div>
+          )}
 
         </div>
       </div>

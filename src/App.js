@@ -1,8 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import { db, storage } from './firebase'; // Make sure storage is imported from your firebase config
+import { db } from './firebase';
 import { collection, getDocs, addDoc, deleteDoc, doc, serverTimestamp, query, where, onSnapshot } from 'firebase/firestore';
-import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 import { getAuth, signInWithEmailAndPassword, createUserWithEmailAndPassword, signOut } from 'firebase/auth';
 
 const auth = getAuth();
@@ -90,8 +89,8 @@ function App() {
           setBooks(booksList);
         } else {
           setBooks([
-            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in', location: 'Main Library', photo: '' },
-            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in', location: 'Campus Gate 1', photo: '' }
+            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in', location: 'Main Library' },
+            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in', location: 'Campus Gate 1' }
           ]);
         }
       } catch (error) {
@@ -128,7 +127,7 @@ function App() {
   const [wishlistSuccessMsg, setWishlistSuccessMsg] = useState('');
   const [wishlistErrorMsg, setWishlistErrorMsg] = useState('');
 
-  // Form State for Listing a Book
+  // Form State for Listing a Book (Image uploading removed entirely)
   const [formTitle, setFormTitle] = useState('');
   const [formAuthor, setFormAuthor] = useState('');
   const [formCourse, setFormCourse] = useState('');
@@ -138,33 +137,8 @@ function App() {
   const [formLocation, setFormLocation] = useState('');
   const [formSeller, setFormSeller] = useState('');
   
-  // Robust image upload states
-  const [formPhotoFile, setFormPhotoFile] = useState(null);
-  const [imagePreviewUrl, setImagePreviewUrl] = useState('');
-  const [uploadingImage, setUploadingImage] = useState(false);
-
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
-
-  // Handle local file selection, validation, and preview generation
-  const handlePhotoFileChange = (e) => {
-    const file = e.target.files[0];
-    if (file) {
-      // Validate file type (must be an image)
-      if (!file.type.startsWith('image/')) {
-        setErrorMsg('Please select a valid image file (JPEG, PNG, etc.).');
-        return;
-      }
-      // Validate file size (limit to 5MB to prevent performance drops)
-      if (file.size > 5 * 1024 * 1024) {
-        setErrorMsg('Image size must be less than 5MB.');
-        return;
-      }
-      setErrorMsg('');
-      setFormPhotoFile(file);
-      setImagePreviewUrl(URL.createObjectURL(file));
-    }
-  };
 
   // Auto-sync form seller email when logged in
   useEffect(() => {
@@ -204,7 +178,7 @@ function App() {
     }
   };
 
-  // Handle listing submission to Firebase Cloud (With Firebase Storage cloud image upload and fallback)
+  // Handle listing submission to Firebase Cloud (Shifts ₹0 or free listings directly to Donations)
   const handleListBook = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -227,21 +201,6 @@ function App() {
 
     // If listing price is 0, shift it automatically to Donations / Giveaways instead of Marketplace
     if (listed === 0) {
-      let finalPhotoUrl = '';
-      if (formPhotoFile) {
-        try {
-          setUploadingImage(true);
-          const storageRef = ref(storage, `book_images/${Date.now()}_${formPhotoFile.name}`);
-          const snapshot = await uploadBytes(storageRef, formPhotoFile);
-          finalPhotoUrl = await getDownloadURL(snapshot.ref);
-        } catch (uploadErr) {
-          console.warn("Firebase Storage upload failed, using local preview fallback for donation:", uploadErr);
-          finalPhotoUrl = imagePreviewUrl;
-        } finally {
-          setUploadingImage(false);
-        }
-      }
-
       const newDonationItem = {
         id: Date.now().toString(),
         title: formTitle,
@@ -249,8 +208,7 @@ function App() {
         course: formCourse.toUpperCase(),
         condition: formCondition,
         donor: sellerEmail,
-        location: formLocation || 'Main Campus Library',
-        photo: finalPhotoUrl
+        location: formLocation || 'Main Campus Library'
       };
 
       setDonations([newDonationItem, ...donations]);
@@ -262,8 +220,6 @@ function App() {
       setFormOriginalPrice('');
       setFormListPrice('');
       setFormLocation('');
-      setFormPhotoFile(null);
-      setImagePreviewUrl('');
       setFormSeller(currentUserEmail);
       return;
     }
@@ -275,27 +231,6 @@ function App() {
       return;
     }
 
-    // Upload image to Firebase Storage if selected
-    let uploadedPhotoUrl = '';
-    if (formPhotoFile) {
-      try {
-        setUploadingImage(true);
-        const storageRef = ref(storage, `book_images/${Date.now()}_${formPhotoFile.name}`);
-        const snapshot = await uploadBytes(storageRef, formPhotoFile);
-        uploadedPhotoUrl = await getDownloadURL(snapshot.ref);
-      } catch (uploadErr) {
-        console.warn("Firebase Storage upload failed, falling back to local base64/object URL:", uploadErr);
-        // Fallback reader conversion so image is never lost even if storage rules/bucket aren't configured yet
-        uploadedPhotoUrl = await new Promise((resolve) => {
-          const reader = new FileReader();
-          reader.onloadend = () => resolve(reader.result);
-          reader.readAsDataURL(formPhotoFile);
-        });
-      } finally {
-        setUploadingImage(false);
-      }
-    }
-
     const newBookData = {
       title: formTitle,
       author: formAuthor,
@@ -305,7 +240,6 @@ function App() {
       condition: formCondition,
       location: formLocation || 'Main Campus Library',
       seller: sellerEmail,
-      photo: uploadedPhotoUrl || '',
       createdAt: serverTimestamp()
     };
 
@@ -314,7 +248,7 @@ function App() {
       const addedBook = { id: docRef.id, ...newBookData };
       
       setBooks([addedBook, ...books]);
-      setSuccessMsg('Book listed live on the cloud with verified photo & wishlist notifications active!');
+      setSuccessMsg('Book listed live on the cloud successfully with wishlist notifications active!');
       
       setFormTitle('');
       setFormAuthor('');
@@ -322,8 +256,6 @@ function App() {
       setFormOriginalPrice('');
       setFormListPrice('');
       setFormLocation('');
-      setFormPhotoFile(null);
-      setImagePreviewUrl('');
       setFormSeller(currentUserEmail);
     } catch (error) {
       console.error("Error adding document: ", error);
@@ -757,7 +689,7 @@ function App() {
         {activeTab === 'feed' && (
           <div className="feed-section">
             <h2>Indian Academic Book Marketplace</h2>
-            <p className="subtitle">Cloud-synced listings with verified photo uploads, in-app live chat, and price drop alerts.</p>
+            <p className="subtitle">Cloud-synced listings with in-app live chat and price drop alerts.</p>
             
             {loading ? (
               <p>Loading books from cloud database...</p>
@@ -782,16 +714,9 @@ function App() {
                         </button>
                       )}
 
-                      {/* Display Uploaded Book Photo if available */}
-                      {book.photo ? (
-                        <div style={{ width: '100%', height: '140px', background: '#f5f5f5', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden', display: 'flex', justifyContent: 'center', alignItems: 'center' }}>
-                          <img src={book.photo} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                        </div>
-                      ) : (
-                        <div style={{ width: '100%', height: '80px', background: '#eef2f7', borderRadius: '6px', marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#888', fontSize: '0.8rem' }}>
-                          📖 Textbook Photo
-                        </div>
-                      )}
+                      <div style={{ width: '100%', height: '80px', background: '#eef2f7', borderRadius: '6px', marginBottom: '10px', display: 'flex', justifyContent: 'center', alignItems: 'center', color: '#888', fontSize: '0.8rem' }}>
+                        📖 Textbook Listing
+                      </div>
 
                       <div className="course-tag">{book.course}</div>
                       <h3>{book.title}</h3>
@@ -882,7 +807,7 @@ function App() {
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (!donTitle || !donCourse) { alert('Please fill required fields'); return; }
-                const newDon = { id: Date.now().toString(), title: donTitle, author: donAuthor || 'Various', course: donCourse.toUpperCase(), condition: donCondition, donor: currentUserEmail, location: donLocation || 'Library', photo: '' };
+                const newDon = { id: Date.now().toString(), title: donTitle, author: donAuthor || 'Various', course: donCourse.toUpperCase(), condition: donCondition, donor: currentUserEmail, location: donLocation || 'Library' };
                 setDonations([newDon, ...donations]);
                 setDonSuccessMsg('Book donation listed successfully! Thank you for supporting peer education.');
                 setDonTitle(''); setDonAuthor(''); setDonCourse(''); setDonLocation('');
@@ -923,11 +848,6 @@ function App() {
                       <button className="delete-btn" onClick={() => handleDeleteDonation(item.id, item.donor)} title="Remove Giveaway">
                         &times;
                       </button>
-                    )}
-                    {item.photo && (
-                      <div style={{ width: '100%', height: '120px', background: '#f5f5f5', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden' }}>
-                        <img src={item.photo} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
                     )}
                     <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
                     <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
@@ -995,36 +915,6 @@ function App() {
                   required 
                 />
               </div>
-              
-              {/* Enhanced Verified Photo Upload Section */}
-              <div className="form-group">
-                <label>Upload Book Photo from Device (Verified Preview)</label>
-                <input 
-                  type="file" 
-                  accept="image/*" 
-                  onChange={handlePhotoFileChange} 
-                  style={{ padding: '8px', border: '1px solid #ccc', borderRadius: '6px', width: '100%', boxSizing: 'border-box', background: '#fff' }} 
-                />
-                
-                {/* Image Verification & Live Preview Box */}
-                {imagePreviewUrl && (
-                  <div style={{ marginTop: '12px', padding: '10px', background: '#f8f9fa', borderRadius: '6px', border: '1px solid #e0e0e0' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-                      <span style={{ fontSize: '0.8rem', color: '#27ae60', fontWeight: 'bold' }}>✓ Image Verified & Ready for Upload</span>
-                      <button 
-                        type="button" 
-                        onClick={() => { setFormPhotoFile(null); setImagePreviewUrl(''); }}
-                        style={{ background: 'none', border: 'none', color: '#e74c3c', fontSize: '0.8rem', cursor: 'pointer', fontWeight: 'bold' }}
-                      >
-                        Remove Image
-                      </button>
-                    </div>
-                    <div style={{ width: '100px', height: '100px', borderRadius: '6px', overflow: 'hidden', border: '1px solid #ccc', background: '#fff' }}>
-                      <img src={imagePreviewUrl} alt="Verified Preview" style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                    </div>
-                  </div>
-                )}
-              </div>
 
               <div className="form-group">
                 <label>Institutional Email</label>
@@ -1037,8 +927,8 @@ function App() {
                 />
               </div>
 
-              <button type="submit" className="submit-btn" disabled={uploadingImage}>
-                {uploadingImage ? 'Uploading Image to Cloud... ⏳' : 'Publish Listing (₹0 Shifts to Free Giveaways 🎁)'}
+              <button type="submit" className="submit-btn">
+                Publish Listing (₹0 Shifts to Free Giveaways 🎁)
               </button>
             </form>
           </div>
@@ -1189,11 +1079,6 @@ function App() {
                     <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove Listing">
                       &times;
                     </button>
-                    {book.photo && (
-                      <div style={{ width: '100%', height: '120px', background: '#f5f5f5', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden' }}>
-                        <img src={book.photo} alt={book.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                    )}
                     <div className="course-tag">{book.course}</div>
                     <h3>{book.title}</h3>
                     <p className="author">by {book.author}</p>
@@ -1217,11 +1102,6 @@ function App() {
                     <button className="delete-btn" onClick={() => handleDeleteDonation(item.id, item.donor)} title="Remove Giveaway">
                       &times;
                     </button>
-                    {item.photo && (
-                      <div style={{ width: '100%', height: '120px', background: '#f5f5f5', borderRadius: '6px', marginBottom: '10px', overflow: 'hidden' }}>
-                        <img src={item.photo} alt={item.title} style={{ width: '100%', height: '100%', objectFit: 'cover' }} />
-                      </div>
-                    )}
                     <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
                     <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
                     <h3>{item.title}</h3>

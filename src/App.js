@@ -190,7 +190,7 @@ function App() {
     }
   };
 
-  // Handle listing submission to Firebase Cloud
+  // Handle listing submission to Firebase Cloud (Automatically shifts ₹0 or free listings directly to Donations)
   const handleListBook = async (e) => {
     e.preventDefault();
     setErrorMsg('');
@@ -204,17 +204,43 @@ function App() {
       return;
     }
 
-    const maxAllowedPrice = orig * 0.5;
-
-    if (listed > maxAllowedPrice) {
-      setErrorMsg(`Policy Error: Max allowed price for a ₹${orig} book is ₹${maxAllowedPrice.toFixed(2)} (Minimum 50% discount required).`);
-      return;
-    }
-
     const sellerEmail = formSeller ? formSeller.trim() : currentUserEmail;
 
     if (!sellerEmail) {
       setErrorMsg('Please provide a valid institutional email address.');
+      return;
+    }
+
+    // If listing price is 0, shift it automatically to Donations / Giveaways instead of Marketplace
+    if (listed === 0) {
+      const newDonationItem = {
+        id: Date.now().toString(),
+        title: formTitle,
+        author: formAuthor,
+        course: formCourse.toUpperCase(),
+        condition: formCondition,
+        donor: sellerEmail,
+        location: formLocation || 'Main Campus Library'
+      };
+
+      setDonations([newDonationItem, ...donations]);
+      setSuccessMsg('🎉 Listing price was ₹0! Automatically shifted your book to Free Book Donations & Giveaways.');
+      
+      setFormTitle('');
+      setFormAuthor('');
+      setFormCourse('');
+      setFormOriginalPrice('');
+      setFormListPrice('');
+      setFormLocation('');
+      setFormPhotoFile('');
+      setFormSeller(currentUserEmail);
+      return;
+    }
+
+    const maxAllowedPrice = orig * 0.5;
+
+    if (listed > maxAllowedPrice) {
+      setErrorMsg(`Policy Error: Max allowed price for a ₹${orig} book is ₹${maxAllowedPrice.toFixed(2)} (Minimum 50% discount required). Note: Setting the price to ₹0 automatically shifts it to Free Donations.`);
       return;
     }
 
@@ -374,10 +400,13 @@ function App() {
 
   // Calculate Badge System
   const userBookCount = books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).length;
+  const userDonationCount = donations.filter(d => d.donor && d.donor.toLowerCase() === currentUserEmail.toLowerCase()).length;
+  const totalUserContributions = userBookCount + userDonationCount;
+
   const getUserBadge = () => {
-    if (userBookCount >= 5) return { title: '🌟 Elite Campus Donor & Seller', color: '#8e44ad' };
-    if (userBookCount >= 2) return { title: '⭐ Active Contributor', color: '#2980b9' };
-    if (userBookCount === 1) return { title: '🌱 Starter Seller', color: '#27ae60' };
+    if (totalUserContributions >= 5) return { title: '🌟 Elite Campus Donor & Seller', color: '#8e44ad' };
+    if (totalUserContributions >= 2) return { title: '⭐ Active Contributor', color: '#2980b9' };
+    if (totalUserContributions === 1) return { title: '🌱 Starter Seller', color: '#27ae60' };
     return { title: '📚 New Academic Explorer', color: '#7f8c8d' };
   };
   const currentBadge = getUserBadge();
@@ -791,7 +820,7 @@ function App() {
         {activeTab === 'donations' && (
           <div className="feed-section">
             <h2>🎁 Free Book Donations & Giveaways</h2>
-            <p className="subtitle">Students giving away old textbooks and notes 100% free of charge to juniors in need.</p>
+            <p className="subtitle">Students giving away old textbooks and notes 100% free of charge to juniors in need. (Listings set to ₹0 automatically appear here!)</p>
 
             {donSuccessMsg && <div className="alert success">{donSuccessMsg}</div>}
 
@@ -862,7 +891,7 @@ function App() {
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
-            <p className="subtitle">Listings feature local Photo Upload & instant Wishlist / Price Drop notifications.</p>
+            <p className="subtitle">Tip: Setting your listing price to <strong>₹0</strong> will automatically shift your book into Free Donations! 🎁</p>
             
             {errorMsg && <div className="alert error">{errorMsg}</div>}
             {successMsg && <div className="alert success">{successMsg}</div>}
@@ -886,8 +915,8 @@ function App() {
                   <input type="number" value={formOriginalPrice} onChange={(e) => setFormOriginalPrice(e.target.value)} placeholder="350" required />
                 </div>
                 <div className="form-group">
-                  <label>Your Listing Price (₹)</label>
-                  <input type="number" value={formListPrice} onChange={(e) => setFormListPrice(e.target.value)} placeholder="Max 50% of MRP" required />
+                  <label>Your Listing Price (₹ - Enter 0 for Free Giveaway)</label>
+                  <input type="number" value={formListPrice} onChange={(e) => setFormListPrice(e.target.value)} placeholder="0 or Max 50% of MRP" required />
                 </div>
               </div>
               <div className="form-group">
@@ -935,7 +964,7 @@ function App() {
                   required 
                 />
               </div>
-              <button type="submit" className="submit-btn">Publish to Cloud (Enforce 50%+ Discount)</button>
+              <button type="submit" className="submit-btn">Publish Listing (₹0 Shifts to Free Giveaways 🎁)</button>
             </form>
           </div>
         )}

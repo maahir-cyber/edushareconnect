@@ -42,10 +42,9 @@ function App() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [selectedConditionFilter, setSelectedConditionFilter] = useState('ALL');
 
-  // Direct Chat Modal State
+  // Direct Chat / Email Modal State
   const [chatBook, setChatBook] = useState(null);
   const [chatMessage, setChatMessage] = useState('');
-  const [chatSentSuccess, setChatSentSuccess] = useState(false);
 
   // Check if current user is admin
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
@@ -521,8 +520,8 @@ function App() {
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
-                      <button className="contact-btn" onClick={() => { setChatBook(book); setChatMessage(''); setChatSentSuccess(false); }}>
-                        Message Seller
+                      <button className="contact-btn" onClick={() => { setChatBook(book); setChatMessage(`Hi, I am interested in your textbook "${book.title}" (${book.course}). Is it still available for pickup at ${book.location || 'Main Library'}?`); }}>
+                        Email Seller ✉️
                       </button>
                     </div>
                   );
@@ -532,51 +531,40 @@ function App() {
           </div>
         )}
 
-        {/* Direct Seller Chat Modal */}
+        {/* Direct Email / Chat Modal with working mailto link */}
         {chatBook && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
-              <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>💬 Contact Seller</h3>
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '420px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>✉️ Email Seller Directly</h3>
               <p style={{ fontSize: '0.9rem', color: '#555', margin: '0 0 15px 0' }}>
-                Inquiring about: <strong>{chatBook.title}</strong><br />
-                Seller Email: <strong>{chatBook.seller}</strong><br />
+                Book: <strong>{chatBook.title}</strong><br />
+                To: <a href={`mailto:${chatBook.seller}`} style={{ color: '#3f51b5', fontWeight: 'bold' }}>{chatBook.seller}</a><br />
                 Pickup Location: <strong>{chatBook.location || 'Main Library'}</strong>
               </p>
 
-              {chatSentSuccess ? (
-                <div style={{ background: '#e8f5e9', color: '#2e7d32', padding: '10px', borderRadius: '6px', textAlign: 'center', marginBottom: '15px' }}>
-                  Message sent to seller successfully! They will email you back.
-                </div>
-              ) : (
-                <div style={{ marginBottom: '15px' }}>
-                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Your Message / Pickup Offer</label>
-                  <textarea 
-                    value={chatMessage} 
-                    onChange={(e) => setChatMessage(e.target.value)} 
-                    placeholder="Hi, I am interested in your book. Can we meet at the campus library today?" 
-                    rows="4"
-                    style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
-                  ></textarea>
-                </div>
-              )}
+              <div style={{ marginBottom: '15px' }}>
+                <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Your Message / Pickup Inquiry</label>
+                <textarea 
+                  value={chatMessage} 
+                  onChange={(e) => setChatMessage(e.target.value)} 
+                  rows="4"
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                ></textarea>
+              </div>
 
               <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
-                {!chatSentSuccess && (
-                  <button 
-                    onClick={() => {
-                      if(!chatMessage.trim()) { alert('Please enter a message.'); return; }
-                      setChatSentSuccess(true);
-                    }} 
-                    style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                  >
-                    Send Message
-                  </button>
-                )}
+                <a 
+                  href={`mailto:${chatBook.seller}?subject=Inquiry about ${encodeURIComponent(chatBook.title)} on EduShare Connect&body=${encodeURIComponent(chatMessage)}`}
+                  onClick={() => setChatBook(null)}
+                  style={{ background: '#27ae60', color: 'white', textDecoration: 'none', padding: '9px 18px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.9rem' }}
+                >
+                  Open Email Client & Send 🚀
+                </a>
                 <button 
                   onClick={() => setChatBook(null)} 
-                  style={{ background: '#ccc', color: '#333', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  style={{ background: '#ccc', color: '#333', border: 'none', padding: '9px 18px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
                 >
-                  Close
+                  Cancel
                 </button>
               </div>
             </div>

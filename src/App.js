@@ -17,10 +17,17 @@ function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Search query state for top search bar
+  // Search and Filter States
   const [searchQuery, setSearchQuery] = useState('');
+  const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
+  const [selectedConditionFilter, setSelectedConditionFilter] = useState('ALL');
 
-  // Check if current user is admin (admin email designated as admin@edushare.ac.in)
+  // Direct Chat Modal State
+  const [chatBook, setChatBook] = useState(null);
+  const [chatMessage, setChatMessage] = useState('');
+  const [chatSentSuccess, setChatSentSuccess] = useState(false);
+
+  // Check if current user is admin
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
 
   // Fetch books from Firebase Cloud Firestore on page load
@@ -39,8 +46,8 @@ function App() {
           setBooks(booksList);
         } else {
           setBooks([
-            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in' },
-            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in' }
+            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in', location: 'Main Library' },
+            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in', location: 'Campus Gate 1' }
           ]);
         }
       } catch (error) {
@@ -78,6 +85,7 @@ function App() {
   const [formOriginalPrice, setFormOriginalPrice] = useState('');
   const [formListPrice, setFormListPrice] = useState('');
   const [formCondition, setFormCondition] = useState('Good');
+  const [formLocation, setFormLocation] = useState('Main Library');
   const [formSeller, setFormSeller] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   const [successMsg, setSuccessMsg] = useState('');
@@ -140,6 +148,7 @@ function App() {
       originalPrice: orig,
       listPrice: listed,
       condition: formCondition,
+      location: formLocation,
       seller: sellerEmail,
       createdAt: serverTimestamp()
     };
@@ -185,7 +194,7 @@ function App() {
     }
   };
 
-  // Handle adding wishlist alert like a form
+  // Handle adding wishlist alert form
   const handleAddWishlistForm = (e) => {
     e.preventDefault();
     setWishlistErrorMsg('');
@@ -220,14 +229,27 @@ function App() {
     return { label: '📚 Standard Value', color: '#8e44ad' };
   };
 
-  // Filter books based on search bar query (matches title, author, or course code)
+  // Count active wishlist matches
+  const matchedWishlistBooks = books.filter(b => preferences.includes(b.course));
+  const wishlistMatchCount = matchedWishlistBooks.length;
+
+  // Filter books based on search query, category pills, and condition dropdown
   const filteredBooks = books.filter(book => {
     const query = searchQuery.toLowerCase();
-    return (
+    const matchesQuery = (
       book.title.toLowerCase().includes(query) ||
       book.author.toLowerCase().includes(query) ||
       book.course.toLowerCase().includes(query)
     );
+
+    let matchesCategory = true;
+    if (selectedCategoryFilter === 'CLASS') matchesCategory = book.course.includes('CLASS');
+    if (selectedCategoryFilter === 'BTECH') matchesCategory = book.course.includes('BTECH');
+
+    let matchesCondition = true;
+    if (selectedConditionFilter !== 'ALL') matchesCondition = book.condition === selectedConditionFilter;
+
+    return matchesQuery && matchesCategory && matchesCondition;
   });
 
   // If user is not logged in, show Background Image View & Auth View
@@ -313,7 +335,10 @@ function App() {
         <nav className="nav-links">
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
           <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell a Book</button>
-          <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>My Wishlist Alerts</button>
+          <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>
+            Wishlist {wishlistMatchCount > 0 && <span style={{ background: '#e74c3c', color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '0.75rem', marginLeft: '5px' }}>{wishlistMatchCount}</span>}
+          </button>
+          <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setItemsTab('profile')}>My Profile</button>
           {isAdmin && (
             <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setItemsTab('admin')} style={{ background: '#d35400', color: 'white' }}>
               Admin Transactions
@@ -330,7 +355,16 @@ function App() {
           </span>
         </div>
 
-        {/* Global Search Bar Toolbar */}
+        {/* Wishlist Match Notification Banner */}
+        {activeTab === 'feed' && wishlistMatchCount > 0 && (
+          <div style={{ background: '#e3f2fd', borderLeft: '4px solid #2196f3', padding: '12px 16px', borderRadius: '4px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.9rem', color: '#0d47a1' }}>
+              🎯 <strong>Wishlist Alert!</strong> You have <strong>{wishlistMatchCount}</strong> available book(s) matching your saved course alerts. Look for the orange badge!
+            </span>
+          </div>
+        )}
+
+        {/* Global Search Bar Toolbar, Category Pills & Condition Filter */}
         {activeTab === 'feed' && (
           <div style={{ marginBottom: '20px' }}>
             <input 
@@ -338,8 +372,44 @@ function App() {
               value={searchQuery} 
               onChange={(e) => setSearchQuery(e.target.value)} 
               placeholder="🔍 Search textbooks by title, author, or course code (e.g. Mathematics, Physics, CLASS12)..." 
-              style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box', boxShadow: '0 2px 4px rgba(0,0,0,0.02)' }}
+              style={{ width: '100%', padding: '12px 16px', borderRadius: '8px', border: '1px solid #ccc', fontSize: '1rem', boxSizing: 'border-box', boxShadow: '0 2px 4px rgba(0,0,0,0.02)', marginBottom: '12px' }}
             />
+            
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '10px' }}>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button 
+                  onClick={() => setSelectedCategoryFilter('ALL')} 
+                  style={{ padding: '6px 14px', borderRadius: '16px', border: 'none', background: selectedCategoryFilter === 'ALL' ? '#3f51b5' : '#e0e0e0', color: selectedCategoryFilter === 'ALL' ? '#fff' : '#333', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                >
+                  All Books
+                </button>
+                <button 
+                  onClick={() => setSelectedCategoryFilter('CLASS')} 
+                  style={{ padding: '6px 14px', borderRadius: '16px', border: 'none', background: selectedCategoryFilter === 'CLASS' ? '#3f51b5' : '#e0e0e0', color: selectedCategoryFilter === 'CLASS' ? '#fff' : '#333', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                >
+                  School / Board (CLASS)
+                </button>
+                <button 
+                  onClick={() => setSelectedCategoryFilter('BTECH')} 
+                  style={{ padding: '6px 14px', borderRadius: '16px', border: 'none', background: selectedCategoryFilter === 'BTECH' ? '#3f51b5' : '#e0e0e0', color: selectedCategoryFilter === 'BTECH' ? '#fff' : '#333', cursor: 'pointer', fontWeight: 'bold', fontSize: '0.85rem' }}
+                >
+                  University / B.Tech
+                </button>
+              </div>
+
+              <div>
+                <select 
+                  value={selectedConditionFilter} 
+                  onChange={(e) => setSelectedConditionFilter(e.target.value)}
+                  style={{ padding: '6px 12px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.85rem', background: '#fff' }}
+                >
+                  <option value="ALL">Filter by Condition: All</option>
+                  <option value="Like New">Like New</option>
+                  <option value="Good">Good</option>
+                  <option value="Fair">Fair</option>
+                </select>
+              </div>
+            </div>
           </div>
         )}
         
@@ -351,7 +421,7 @@ function App() {
             {loading ? (
               <p>Loading books from cloud database...</p>
             ) : filteredBooks.length === 0 ? (
-              <p style={{ textAlign: 'center', color: '#777', padding: '30px' }}>No textbooks match your search query.</p>
+              <p style={{ textAlign: 'center', color: '#777', padding: '30px' }}>No textbooks match your search query or filter.</p>
             ) : (
               <div className="book-grid">
                 {filteredBooks.map((book) => {
@@ -382,22 +452,74 @@ function App() {
                       </div>
 
                       {/* Affordability Feature Badge */}
-                      <div style={{ marginBottom: '10px' }}>
+                      <div style={{ marginBottom: '8px' }}>
                         <span style={{ fontSize: '0.75rem', padding: '3px 8px', borderRadius: '4px', background: affordability.color, color: 'white', fontWeight: 'bold', display: 'inline-block' }}>
                           {affordability.label}
                         </span>
                       </div>
 
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
+                      <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
                       <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
-                      <button className="contact-btn" onClick={() => alert(`Connecting with seller: ${book.seller}\nArrange campus pickup or local delivery.`)}>
-                        Contact Seller
+                      <button className="contact-btn" onClick={() => { setChatBook(book); setChatMessage(''); setChatSentSuccess(false); }}>
+                        Message Seller
                       </button>
                     </div>
                   );
                 })}
               </div>
             )}
+          </div>
+        )}
+
+        {/* Direct Seller Chat Modal */}
+        {chatBook && (
+          <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
+            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', width: '400px', maxWidth: '90%', boxShadow: '0 4px 15px rgba(0,0,0,0.2)' }}>
+              <h3 style={{ margin: '0 0 10px 0', color: '#1a237e' }}>💬 Contact Seller</h3>
+              <p style={{ fontSize: '0.9rem', color: '#555', margin: '0 0 15px 0' }}>
+                Inquiring about: <strong>{chatBook.title}</strong><br />
+                Seller Email: <strong>{chatBook.seller}</strong><br />
+                Pickup Location: <strong>{chatBook.location || 'Main Library'}</strong>
+              </p>
+
+              {chatSentSuccess ? (
+                <div style={{ background: '#e8f5e9', color: '#2e7d32', padding: '10px', borderRadius: '6px', textAlign: 'center', marginBottom: '15px' }}>
+                  Message sent to seller successfully! They will email you back.
+                </div>
+              ) : (
+                <div style={{ marginBottom: '15px' }}>
+                  <label style={{ display: 'block', fontSize: '0.85rem', fontWeight: 'bold', marginBottom: '5px' }}>Your Message / Pickup Offer</label>
+                  <textarea 
+                    value={chatMessage} 
+                    onChange={(e) => setChatMessage(e.target.value)} 
+                    placeholder="Hi, I am interested in your book. Can we meet at the campus library today?" 
+                    rows="4"
+                    style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }}
+                  ></textarea>
+                </div>
+              )}
+
+              <div style={{ display: 'flex', gap: '10px', justifyContent: 'flex-end' }}>
+                {!chatSentSuccess && (
+                  <button 
+                    onClick={() => {
+                      if(!chatMessage.trim()) { alert('Please enter a message.'); return; }
+                      setChatSentSuccess(true);
+                    }} 
+                    style={{ background: '#3f51b5', color: 'white', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                  >
+                    Send Message
+                  </button>
+                )}
+                <button 
+                  onClick={() => setChatBook(null)} 
+                  style={{ background: '#ccc', color: '#333', border: 'none', padding: '8px 16px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
+                >
+                  Close
+                </button>
+              </div>
+            </div>
           </div>
         )}
 
@@ -438,6 +560,15 @@ function App() {
                   <option value="Like New">Like New (No highlighting/markings)</option>
                   <option value="Good">Good (Minor pencil notes)</option>
                   <option value="Fair">Fair (Worn cover, fully readable pages)</option>
+                </select>
+              </div>
+              <div className="form-group">
+                <label>Campus Pickup Location</label>
+                <select value={formLocation} onChange={(e) => setFormLocation(e.target.value)}>
+                  <option value="Main Library">Main Library</option>
+                  <option value="Campus Gate 1">Campus Gate 1</option>
+                  <option value="Student Union Building">Student Union Building</option>
+                  <option value="Science Block Canteen">Science Block Canteen</option>
                 </select>
               </div>
               <div className="form-group">
@@ -516,6 +647,49 @@ function App() {
           </div>
         )}
 
+        {activeTab === 'profile' && (
+          <div className="feed-section">
+            <h2>My User Profile & Activity Summary</h2>
+            <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong></p>
+
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(240px, 1fr))', gap: '20px', marginBottom: '30px' }}>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 10px 0', color: '#3f51b5' }}>📦 Active Listings</h3>
+                <p style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '0', color: '#333' }}>
+                  {books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).length}
+                </p>
+              </div>
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)' }}>
+                <h3 style={{ margin: '0 0 10px 0', color: '#3f51b5' }}>🎯 Wishlist Alerts</h3>
+                <p style={{ fontSize: '1.8rem', fontWeight: 'bold', margin: '0', color: '#333' }}>{preferences.length}</p>
+              </div>
+            </div>
+
+            <h3>Your Shared Book Listings:</h3>
+            <div className="book-grid" style={{ marginTop: '15px' }}>
+              {books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).length === 0 ? (
+                <p style={{ color: '#777' }}>You have not listed any textbooks yet. Head over to "Sell a Book" to share one!</p>
+              ) : (
+                books.filter(b => b.seller && b.seller.toLowerCase() === currentUserEmail.toLowerCase()).map(book => (
+                  <div key={book.id} className="book-card">
+                    <button className="delete-btn" onClick={() => handleDeleteBook(book.id, book.seller)} title="Remove My Listing">
+                      &times;
+                    </button>
+                    <div className="course-tag">{book.course}</div>
+                    <h3>{book.title}</h3>
+                    <p className="author">by {book.author}</p>
+                    <div className="pricing">
+                      <span className="list-price">₹{book.listPrice}</span>
+                    </div>
+                    <p className="condition">Condition: <strong>{book.condition}</strong></p>
+                    <p style={{ fontSize: '0.8rem', color: '#555' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
+                  </div>
+                ))
+              )}
+            </div>
+          </div>
+        )}
+
         {isAdmin && activeTab === 'admin' && (
           <div className="feed-section">
             <h2>Admin Book Transactions Management</h2>
@@ -532,7 +706,7 @@ function App() {
                       <th style={{ padding: '10px' }}>Book Title</th>
                       <th style={{ padding: '10px' }}>Seller Email</th>
                       <th style={{ padding: '10px' }}>List Price</th>
-                      <th style={{ padding: '10px' }}>Condition</th>
+                      <th style={{ padding: '10px' }}>Pickup Location</th>
                       <th style={{ padding: '10px' }}>Actions</th>
                     </tr>
                   </thead>
@@ -543,7 +717,7 @@ function App() {
                         <td style={{ padding: '10px' }}>{book.title}</td>
                         <td style={{ padding: '10px', color: '#666' }}>{book.seller}</td>
                         <td style={{ padding: '10px', color: '#2e7d32', fontWeight: 'bold' }}>₹{book.listPrice}</td>
-                        <td style={{ padding: '10px' }}>{book.condition}</td>
+                        <td style={{ padding: '10px' }}>{book.location || 'Main Library'}</td>
                         <td style={{ padding: '10px' }}>
                           <button 
                             onClick={() => handleDeleteBook(book.id, book.seller)} 

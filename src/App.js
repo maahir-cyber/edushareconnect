@@ -58,7 +58,7 @@ function App() {
   const [donTitle, setDonTitle] = useState('');
   const [donAuthor, setDonAuthor] = useState('');
   const [donCourse, setDonCourse] = useState('');
-  const [donCondition, setDonCondition] = useState('Good');
+  const [donCondition] = useState('Good');
   const [donLocation, setDonLocation] = useState('');
   const [donSuccessMsg, setDonSuccessMsg] = useState('');
 
@@ -116,7 +116,6 @@ function App() {
   const [wishlistCourse, setWishlistCourse] = useState('');
   const [wishlistSubject, setWishlistSubject] = useState('');
   const [wishlistMaxPrice, setWishlistMaxPrice] = useState('');
-  const [wishlistNotes, setWishlistNotes] = useState('');
   const [wishlistSuccessMsg, setWishlistSuccessMsg] = useState('');
   const [wishlistErrorMsg, setWishlistErrorMsg] = useState('');
 
@@ -273,7 +272,6 @@ function App() {
       setWishlistCourse('');
       setWishlistSubject('');
       setWishlistMaxPrice('');
-      setWishlistNotes('');
     } else {
       setWishlistErrorMsg('This alert preference already exists.');
     }

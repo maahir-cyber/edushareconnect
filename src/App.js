@@ -57,8 +57,8 @@ function App() {
   const [donations, setDonations] = useState(() => {
     const savedDonations = localStorage.getItem('edushare_donations');
     return savedDonations ? JSON.parse(savedDonations) : [
-      { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@college.ac.in', location: 'Science Block', isDigital: false },
-      { id: 'd2', title: 'Class 10 Foundation Mathematics Formula Sheet', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Digital PDF', donor: 'sneha@school.edu', location: 'Online Drive', isDigital: true, pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
+      { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@gmail.com', location: 'Science Block', isDigital: false },
+      { id: 'd2', title: 'Class 10 Foundation Mathematics Formula Sheet', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Digital PDF', donor: 'sneha@gmail.com', location: 'Online Drive', isDigital: true, pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
     ];
   });
 
@@ -96,7 +96,7 @@ function App() {
   const [isoRequests, setIsoRequests] = useState(() => {
     const savedIso = localStorage.getItem('edushare_iso');
     return savedIso ? JSON.parse(savedIso) : [
-      { id: 'iso1', course: 'BTECH-CSE201', title: 'Data Structures and Algorithms by Cormen', requester: 'rahul@college.ac.in', budget: '₹300' }
+      { id: 'iso1', course: 'BTECH-CSE201', title: 'Data Structures and Algorithms by Cormen', requester: 'rahul@gmail.com', budget: '₹300' }
     ];
   });
 
@@ -128,8 +128,8 @@ function App() {
           setBooks(booksList);
         } else {
           setBooks([
-            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@st.du.ac.in', location: 'Main Library' },
-            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@iitd.ac.in', location: 'Campus Gate 1' }
+            { id: '1', title: 'NCERT Mathematics Class 12', author: 'NCERT', course: 'CLASS12-MATH', originalPrice: 150, listPrice: 70, condition: 'Like New', seller: 'rahul@gmail.com', location: 'Main Library' },
+            { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@gmail.com', location: 'Campus Gate 1' }
           ]);
         }
       } catch (error) {
@@ -186,16 +186,16 @@ function App() {
     }
   }, [currentUserEmail]);
 
-  // Handle Secure Authentication with College Domain Check (Feature 1)
+  // Handle Secure Authentication with @gmail.com Check
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     const emailInput = loginEmail.trim().toLowerCase();
 
-    // Enforce College Domain Check (.ac.in or .edu) unless logging in as admin
+    // Enforce @gmail.com check unless logging in as admin
     if (emailInput !== 'admin@edushare.ac.in') {
-      const isValidDomain = emailInput.endsWith('.ac.in') || emailInput.endsWith('.edu');
-      if (!isValidDomain) {
-        alert("Domain Restriction Error: Registration & login require a valid institutional email address ending in '.ac.in' or '.edu'.");
+      const isValidGmail = emailInput.endsWith('@gmail.com');
+      if (!isValidGmail) {
+        alert("Email Restriction Error: Registration & login require a valid '@gmail.com' address.");
         return;
       }
     }
@@ -203,7 +203,7 @@ function App() {
     try {
       if (isSignUpMode) {
         await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
-        alert("Verified Institutional Account created successfully! You are now logged in.");
+        alert("Account created successfully! You are now logged in.");
       } else {
         await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       }
@@ -244,7 +244,7 @@ function App() {
     const sellerEmail = formSeller ? formSeller.trim() : currentUserEmail;
 
     if (!sellerEmail) {
-      setErrorMsg('Please provide a valid institutional email address.');
+      setErrorMsg('Please provide a valid email address.');
       return;
     }
 
@@ -432,7 +432,7 @@ function App() {
     }
   };
 
-  // Handle Meetup Scheduler Submission (Feature 2 / Interactive enhancement)
+  // Handle Meetup Scheduler Submission
   const handleScheduleMeetup = (e) => {
     e.preventDefault();
     if (!meetupTime) {
@@ -443,7 +443,7 @@ function App() {
     setTimeout(() => setMeetupSuccessMsg(''), 5000);
   };
 
-  // Handle User Rating Submission (Feature 4)
+  // Handle User Rating Submission
   const handleRatingSubmit = (e) => {
     e.preventDefault();
     setRatingSuccessMsg('');
@@ -472,12 +472,12 @@ function App() {
   const getPeerRating = (email) => {
     if (!email) return 'New (5.0 ⭐)';
     const data = userRatings[email.toLowerCase()];
-    if (!data || data.count === 0) return 'Verified Student (5.0 ⭐)';
+    if (!data || data.count === 0) return 'Gmail Verified Student (5.0 ⭐)';
     const avg = (data.totalStars / data.count).toFixed(1);
     return `${avg} ⭐ (${data.count} ratings)`;
   };
 
-  // Handle ISO Request submission (Feature 5)
+  // Handle ISO Request submission
   const handleIsoSubmit = (e) => {
     e.preventDefault();
     setIsoSuccessMsg('');
@@ -580,22 +580,22 @@ function App() {
           
           {/* Hero Card */}
           <div className="scrollable-hero-card">
-            <div className="hero-badge">✨ Verified Campus Education Network</div>
+            <div className="hero-badge">✨ Gmail Verified Campus Network</div>
             <h1 className="hero-title">EDUSHARE CONNECT</h1>
             
             <div className="scroll-content-box">
               <div className="vision-mission-block">
-                <h3>🛡️ TRUST & SAFETY (FEATURE 1)</h3>
-                <p>Platform secure access is strictly restricted to verified institutional emails ending in <strong>.ac.in</strong> or <strong>.edu</strong> for trusted peer collaboration.</p>
+                <h3>🛡️ SECURE GMAIL ACCESS</h3>
+                <p>Platform secure access utilizes verified <strong>@gmail.com</strong> accounts for smooth, accessible peer collaboration.</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>📂 DIGITAL RESOURCE HUB (FEATURE 3)</h3>
+                <h3>📂 DIGITAL RESOURCE HUB</h3>
                 <p>Share and download class notes, formula sheets, and study guide PDFs instantly alongside physical textbook exchanges.</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>⭐ PEER REPUTATION (FEATURE 4)</h3>
+                <h3>⭐ PEER REPUTATION</h3>
                 <p>Build and evaluate trust scores with star ratings for every student after completed campus meetups.</p>
               </div>
             </div>
@@ -603,17 +603,17 @@ function App() {
             {/* IN MOBILE VIEW: RENDER LOGIN CARD RIGHT UNDER THE VISION / HERO CONTENT BOX */}
             {deviceMode === 'mobile' && (
               <div className="login-card" style={{ marginTop: '20px', width: '100%', boxSizing: 'border-box' }}>
-                <h2>{isSignUpMode ? '📝 Verified Student Sign-Up' : '🔐 Institutional Portal Sign-In'}</h2>
-                <p className="subtitle">{isSignUpMode ? 'Use your college email (.ac.in / .edu)' : 'Enter your verified student email.'}</p>
+                <h2>{isSignUpMode ? '📝 Gmail Account Sign-Up' : '🔐 Gmail Portal Sign-In'}</h2>
+                <p className="subtitle">{isSignUpMode ? 'Use your @gmail.com address' : 'Enter your @gmail.com account.'}</p>
                 
                 <form onSubmit={handleAuthSubmit} className="book-form">
                   <div className="form-group">
-                    <label>Institutional Email (.ac.in / .edu)</label>
+                    <label>Gmail Address (@gmail.com)</label>
                     <input 
                       type="email" 
                       value={loginEmail} 
                       onChange={(e) => setLoginEmail(e.target.value)} 
-                      placeholder="student@college.ac.in (or admin@edushare.ac.in)" 
+                      placeholder="student@gmail.com (or admin@edushare.ac.in)" 
                       required 
                     />
                   </div>
@@ -628,7 +628,7 @@ function App() {
                     />
                   </div>
                   <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
-                    {isSignUpMode ? 'Register Verified Account 🚀' : 'Login Securely 🚀'}
+                    {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
                   </button>
                 </form>
 
@@ -657,17 +657,17 @@ function App() {
           {/* IN DESKTOP VIEW: RENDER LOGIN CARD SIDE-BY-SIDE */}
           {deviceMode !== 'mobile' && (
             <div className="login-card">
-              <h2>{isSignUpMode ? '📝 Verified Student Sign-Up' : '🔐 Institutional Portal Sign-In'}</h2>
-              <p className="subtitle">{isSignUpMode ? 'Use your college email (.ac.in / .edu)' : 'Enter your verified student email.'}</p>
+              <h2>{isSignUpMode ? '📝 Gmail Account Sign-Up' : '🔐 Gmail Portal Sign-In'}</h2>
+              <p className="subtitle">{isSignUpMode ? 'Use your @gmail.com address' : 'Enter your @gmail.com account.'}</p>
               
               <form onSubmit={handleAuthSubmit} className="book-form">
                 <div className="form-group">
-                  <label>Institutional Email (.ac.in / .edu)</label>
+                  <label>Gmail Address (@gmail.com)</label>
                   <input 
                     type="email" 
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
-                    placeholder="student@college.ac.in (or admin@edushare.ac.in)" 
+                    placeholder="student@gmail.com (or admin@edushare.ac.in)" 
                     required 
                   />
                 </div>
@@ -682,7 +682,7 @@ function App() {
                   />
                 </div>
                 <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
-                  {isSignUpMode ? 'Register Verified Account 🚀' : 'Login Securely 🚀'}
+                  {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
                 </button>
               </form>
 
@@ -736,11 +736,11 @@ function App() {
       <main className="content">
         <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>
-            Verified User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
+            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
           </span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: '#27ae60', color: 'white', fontWeight: 'bold' }}>
-              🛡️ Verified Student
+              ✉️ Gmail Verified
             </span>
             <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: currentBadge.color, color: 'white', fontWeight: 'bold' }}>
               {currentBadge.title}
@@ -811,7 +811,7 @@ function App() {
         
         {activeTab === 'feed' && (
           <div className="feed-section">
-            <h2>Verified Indian Academic Book Marketplace</h2>
+            <h2>Gmail Verified Academic Book Marketplace</h2>
             <p className="subtitle">Cloud-synced listings with verified peer ratings and in-app live chat.</p>
             
             {loading ? (
@@ -873,7 +873,7 @@ function App() {
           </div>
         )}
 
-        {/* IN-APP CHAT & MEETUP SCHEDULER MODAL (Feature 2) */}
+        {/* IN-APP CHAT & MEETUP SCHEDULER MODAL */}
         {chatBook && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', width: '480px', maxWidth: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', overflowY: 'auto' }}>
@@ -885,9 +885,9 @@ function App() {
                 <button onClick={() => setChatBook(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', fontWeight: 'bold' }}>&times;</button>
               </div>
 
-              {/* Meetup Scheduler Section (Feature 2) */}
+              {/* Meetup Scheduler Section */}
               <div style={{ background: '#e8f5e9', padding: '12px', borderRadius: '6px', marginBottom: '15px', borderLeft: '4px solid #27ae60' }}>
-                <h4 style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '0.9rem' }}>📅 Schedule Campus Meetup (Feature 2)</h4>
+                <h4 style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '0.9rem' }}>📅 Schedule Campus Meetup</h4>
                 {meetupSuccessMsg && <div style={{ fontSize: '0.8rem', color: '#2e7d32', marginBottom: '8px', fontWeight: 'bold' }}>{meetupSuccessMsg}</div>}
                 <form onSubmit={handleScheduleMeetup} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px' }}>
                   <select value={meetupLocation} onChange={(e) => setMeetupLocation(e.target.value)} style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '4px' }}>
@@ -934,10 +934,10 @@ function App() {
           </div>
         )}
 
-        {/* DONATIONS & DIGITAL PDF / NOTES HUB (Feature 3) */}
+        {/* DONATIONS & DIGITAL PDF / NOTES HUB */}
         {activeTab === 'donations' && (
           <div className="feed-section">
-            <h2>🎁 Free Book Donations & Digital Study Notes Hub (Feature 3)</h2>
+            <h2>🎁 Free Book Donations & Digital Study Notes Hub</h2>
             <p className="subtitle">Share free physical textbooks or upload class notes, formula sheets, and study guide PDFs instantly for peers.</p>
 
             {donSuccessMsg && <div className="alert success">{donSuccessMsg}</div>}
@@ -981,7 +981,7 @@ function App() {
                     <label>Resource Type</label>
                     <select value={donIsDigital ? 'digital' : 'physical'} onChange={(e) => setDonIsDigital(e.target.value === 'digital')}>
                       <option value="physical">Physical Book / Notes</option>
-                      <option value="digital">Digital PDF / Notes Share (Feature 3)</option>
+                      <option value="digital">Digital PDF / Notes Share</option>
                     </select>
                   </div>
                 </div>
@@ -1041,10 +1041,10 @@ function App() {
           </div>
         )}
 
-        {/* ISO (IN SEARCH OF) REQUEST BOARD (Feature 5) */}
+        {/* ISO (IN SEARCH OF) REQUEST BOARD */}
         {activeTab === 'iso' && (
           <div className="feed-section">
-            <h2>🎯 ISO (In Search Of) Request Board (Feature 5)</h2>
+            <h2>🎯 ISO (In Search Of) Request Board</h2>
             <p className="subtitle">Looking for a specific textbook that isn't listed yet? Post your request here so campus sellers can find you!</p>
 
             {isoSuccessMsg && <div className="alert success">{isoSuccessMsg}</div>}
@@ -1139,12 +1139,12 @@ function App() {
               </div>
 
               <div className="form-group">
-                <label>Verified Institutional Email</label>
+                <label>Gmail Address</label>
                 <input 
                   type="email" 
                   value={formSeller} 
                   onChange={(e) => setFormSeller(e.target.value)} 
-                  placeholder="student@college.ac.in" 
+                  placeholder="student@gmail.com" 
                   required 
                 />
               </div>
@@ -1267,17 +1267,17 @@ function App() {
 
         {activeTab === 'profile' && (
           <div className="feed-section">
-            <h2>My Verified User Profile & Peer Trust Score</h2>
+            <h2>My Gmail User Profile & Peer Trust Score</h2>
             <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong> (Trust Rating: <strong>{getPeerRating(currentUserEmail)}</strong>)</p>
 
             {ratingSuccessMsg && <div className="alert success">{ratingSuccessMsg}</div>}
 
-            {/* User Rating Submission Form (Feature 4) */}
+            {/* User Rating Submission Form */}
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #f39c12' }}>
-              <h3 style={{ marginTop: 0, color: '#d35400', fontSize: '1.1rem' }}>⭐ Rate a Peer Student (Feature 4)</h3>
+              <h3 style={{ marginTop: 0, color: '#d35400', fontSize: '1.1rem' }}>⭐ Rate a Peer Student</h3>
               <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>Completed an exchange? Rate your peer seller/buyer to boost campus trust scores.</p>
               <form onSubmit={handleRatingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 1fr auto', gap: '10px', alignItems: 'center' }}>
-                <input type="email" value={ratingTargetUser} onChange={(e) => setRatingTargetUser(e.target.value)} placeholder="peer@college.ac.in" style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }} required />
+                <input type="email" value={ratingTargetUser} onChange={(e) => setRatingTargetUser(e.target.value)} placeholder="peer@gmail.com" style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }} required />
                 <select value={ratingStars} onChange={(e) => setRatingStars(e.target.value)} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }}>
                   <option value="5">⭐⭐⭐⭐⭐ (5)</option>
                   <option value="4">⭐⭐⭐⭐ (4)</option>
@@ -1360,7 +1360,7 @@ function App() {
         {isAdmin && activeTab === 'admin' && (
           <div className="feed-section">
             <h2>Admin Platform Dashboard & Statistics</h2>
-            <p className="subtitle">Overview of platform metrics, textbook transactions, and verified student statistics.</p>
+            <p className="subtitle">Overview of platform metrics, textbook transactions, and user statistics.</p>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #3f51b5' }}>

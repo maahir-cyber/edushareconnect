@@ -19,6 +19,7 @@ function App() {
   const [activeTab, setItemsTab] = useState('feed');
   const [books, setBooks] = useState([]);
   const [donations, setDonations] = useState([]);
+  const [teachersNotes, setTeachersNotes] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Search and Filter States
@@ -44,6 +45,14 @@ function App() {
   const [donPdfLink, setDonPdfLink] = useState('');
   const [donSuccessMsg, setDonSuccessMsg] = useState('');
 
+  // Teacher Notes & Syllabus Upload Form State
+  const [tnTitle, setTnTitle] = useState('');
+  const [tnSubject, setTnSubject] = useState('');
+  const [tnCourse, setTnCourse] = useState('');
+  const [tnType, setTnType] = useState('Lecture Notes');
+  const [tnPdfLink, setTnPdfLink] = useState('');
+  const [tnSuccessMsg, setTnSuccessMsg] = useState('');
+
   // User Ratings & Peer Trust Score State
   const [userRatings, setUserRatings] = useState(() => {
     const savedRatings = localStorage.getItem('edushare_user_ratings');
@@ -61,10 +70,11 @@ function App() {
   const [ratingReviewText, setRatingReviewText] = useState('');
   const [ratingSuccessMsg, setRatingSuccessMsg] = useState('');
 
-  // Check if current user is admin
+  // Check if current user is admin or designated teacher
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
+  const isTeacher = currentUserEmail.trim().toLowerCase().includes('teacher') || currentUserEmail.trim().toLowerCase() === 'edushare.connect.1@gmail.com' || isAdmin;
 
-  // Fetch books AND donations from Firebase Cloud Firestore on login
+  // Fetch books, donations, AND teachers notes from Firebase Cloud Firestore on login
   useEffect(() => {
     if (!isLoggedIn) return;
 
@@ -100,6 +110,22 @@ function App() {
           setDonations([
             { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@gmail.com', location: 'Science Block', isDigital: false },
             { id: 'd2', title: 'Class 10 Foundation Mathematics Formula Sheet', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Digital PDF', donor: 'sneha@gmail.com', location: 'Online Drive', isDigital: true, pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
+          ]);
+        }
+
+        // Fetch Teachers Notes & Syllabuses from Firestore Cloud
+        const teacherNotesSnapshot = await getDocs(collection(db, "teachersNotes"));
+        const teacherNotesList = teacherNotesSnapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+
+        if (teacherNotesList.length > 0) {
+          setTeachersNotes(teacherNotesList);
+        } else {
+          setTeachersNotes([
+            { id: 'tn1', title: 'Complete Semester Syllabus & Marking Scheme', subject: 'Mathematics', course: 'BTECH-MATH101', type: 'Syllabus', uploader: 'EduShare.Connect.1@gmail.com', pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
+            { id: 'tn2', title: 'Unit 1 & 2 Lecture Notes - Quantum Physics', subject: 'Physics', course: 'BTECH-PHY101', type: 'Lecture Notes', uploader: 'EduShare.Connect.1@gmail.com', pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
           ]);
         }
 
@@ -157,13 +183,13 @@ function App() {
     }
   }, [currentUserEmail]);
 
-  // Handle Secure Authentication with @gmail.com Check
+  // Handle Secure Authentication with @gmail.com Check & Helpline Support Support
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     const emailInput = loginEmail.trim().toLowerCase();
 
-    // Enforce @gmail.com check unless logging in as admin
-    if (emailInput !== 'admin@edushare.ac.in') {
+    // Enforce @gmail.com check unless logging in as admin or helpline
+    if (emailInput !== 'admin@edushare.ac.in' && emailInput !== 'edushare.connect.1@gmail.com') {
       const isValidGmail = emailInput.endsWith('@gmail.com');
       if (!isValidGmail) {
         alert("Email Restriction Error: Registration & login require a valid '@gmail.com' address.");
@@ -184,6 +210,14 @@ function App() {
     } catch (error) {
       alert("Authentication Error: " + error.message);
     }
+  };
+
+  // Quick Login as Helpline / Support Team
+  const handleHelplineLogin = async () => {
+    setLoginEmail('EduShare.Connect.1@gmail.com');
+    setCurrentUserEmail('edushare.connect.1@gmail.com');
+    setFormSeller('edushare.connect.1@gmail.com');
+    setIsLoggedIn(true);
   };
 
   // Handle Logout
@@ -315,6 +349,60 @@ function App() {
     } catch (err) {
       console.error("Error saving donation: ", err);
       alert("Failed to save donation to cloud database.");
+    }
+  };
+
+  // Handle uploading Teacher Notes & Syllabuses to Firebase Cloud
+  const handleUploadTeacherNotes = async (e) => {
+    e.preventDefault();
+    if (!isTeacher) {
+      alert("Unauthorized: Only teachers and helpline staff can upload verified lecture notes and syllabuses!");
+      return;
+    }
+    if (!tnTitle || !tnCourse || !tnSubject) {
+      alert("Please fill in all required teacher notes fields.");
+      return;
+    }
+
+    const newNoteData = {
+      title: tnTitle,
+      subject: tnSubject,
+      course: tnCourse.toUpperCase(),
+      type: tnType,
+      uploader: currentUserEmail,
+      pdfLink: tnPdfLink || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf',
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, "teachersNotes"), newNoteData);
+      setTeachersNotes([{ id: docRef.id, ...newNoteData }, ...teachersNotes]);
+      setTnSuccessMsg('👨‍🏫 Teacher notes & syllabus uploaded and synced live to cloud successfully!');
+      setTnTitle(''); setTnSubject(''); setTnCourse(''); setTnPdfLink('');
+    } catch (err) {
+      console.error("Error uploading teacher note: ", err);
+      alert("Failed to upload teacher notes to cloud database.");
+    }
+  };
+
+  // Handle deleting a teacher note (teacher or admin)
+  const handleDeleteTeacherNote = async (noteId, uploaderEmail) => {
+    const isOwner = uploaderEmail && uploaderEmail.toLowerCase() === currentUserEmail.toLowerCase();
+    if (!isOwner && !isAdmin) {
+      alert("Unauthorized: You can only remove teacher notes you uploaded unless you are admin.");
+      return;
+    }
+
+    if (window.confirm("Are you sure you want to remove this teacher note/syllabus?")) {
+      try {
+        if (noteId.length > 5) {
+          await deleteDoc(doc(db, "teachersNotes", noteId));
+        }
+        setTeachersNotes(teachersNotes.filter(n => n.id !== noteId));
+      } catch (err) {
+        console.error("Error deleting teacher note:", err);
+        alert("Failed to delete note from cloud database.");
+      }
     }
   };
 
@@ -461,6 +549,7 @@ function App() {
   // Calculate peer trust average score for any email
   const getPeerRating = (email) => {
     if (!email) return 'New (5.0 ⭐)';
+    if (email.toLowerCase() === 'edushare.connect.1@gmail.com') return 'Official Helpline (5.0 ⭐)';
     const data = userRatings[email.toLowerCase()];
     if (!data || data.count === 0) return 'Student (5.0 ⭐)';
     const avg = (data.totalStars / data.count).toFixed(1);
@@ -473,6 +562,7 @@ function App() {
   const totalUserContributions = userBookCount + userDonationCount;
 
   const getUserBadge = () => {
+    if (currentUserEmail.toLowerCase() === 'edushare.connect.1@gmail.com') return { title: '☎️ Official Support Helpline', color: '#d35400' };
     if (totalUserContributions >= 5) return { title: '🌟 Elite Campus Donor & Seller', color: '#8e44ad' };
     if (totalUserContributions >= 2) return { title: '⭐ Active Contributor', color: '#2980b9' };
     if (totalUserContributions === 1) return { title: '🌱 Starter Seller', color: '#27ae60' };
@@ -545,23 +635,23 @@ function App() {
           
           {/* Hero Card */}
           <div className="scrollable-hero-card">
-            <div className="hero-badge">✨ Campus Network</div>
+            <div className="hero-badge">✨ Campus Network & Helpline Support</div>
             <h1 className="hero-title">EDUSHARE CONNECT</h1>
             
             <div className="scroll-content-box">
               <div className="vision-mission-block">
-                <h3>🛡️ SECURE GMAIL ACCESS</h3>
-                <p>Platform secure access utilizes verified <strong>@gmail.com</strong> accounts for smooth, accessible peer collaboration.</p>
+                <h3>🛡️ SECURE GMAIL ACCESS & HELPLINE</h3>
+                <p>Platform secure access utilizes verified <strong>@gmail.com</strong> accounts. Need assistance? Contact our official helpline at <strong>EduShare.Connect.1@gmail.com</strong>.</p>
+              </div>
+
+              <div className="vision-mission-block">
+                <h3>👨‍🏫 TEACHERS & SYLLABUS HUB</h3>
+                <p>Access official lecture notes, curriculum guides, and syllabuses uploaded directly by faculty members.</p>
               </div>
 
               <div className="vision-mission-block">
                 <h3>📂 DIGITAL RESOURCE HUB</h3>
                 <p>Share and download class notes, formula sheets, and study guide PDFs instantly alongside physical textbook exchanges.</p>
-              </div>
-
-              <div className="vision-mission-block">
-                <h3>⭐ PEER REPUTATION</h3>
-                <p>Build and evaluate trust scores with star ratings for every student after completed campus meetups.</p>
               </div>
             </div>
             
@@ -578,7 +668,7 @@ function App() {
                       type="email" 
                       value={loginEmail} 
                       onChange={(e) => setLoginEmail(e.target.value)} 
-                      placeholder="student@gmail.com (or admin@edushare.ac.in)" 
+                      placeholder="student@gmail.com (or EduShare.Connect.1@gmail.com)" 
                       required 
                     />
                   </div>
@@ -596,6 +686,10 @@ function App() {
                     {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
                   </button>
                 </form>
+
+                <button onClick={handleHelplineLogin} style={{ width: '100%', marginTop: '10px', background: '#d35400', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                  ☎️ Quick Login as Helpline (EduShare.Connect.1@gmail.com)
+                </button>
 
                 <div style={{ marginTop: '10px', textAlign: 'center' }}>
                   <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
@@ -632,7 +726,7 @@ function App() {
                     type="email" 
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
-                    placeholder="student@gmail.com (or admin@edushare.ac.in)" 
+                    placeholder="student@gmail.com (or EduShare.Connect.1@gmail.com)" 
                     required 
                   />
                 </div>
@@ -650,6 +744,10 @@ function App() {
                   {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
                 </button>
               </form>
+
+              <button onClick={handleHelplineLogin} style={{ width: '100%', marginTop: '10px', background: '#d35400', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
+                ☎️ Quick Login as Helpline (EduShare.Connect.1@gmail.com)
+              </button>
 
               <div style={{ marginTop: '10px', textAlign: 'center' }}>
                 <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
@@ -683,6 +781,9 @@ function App() {
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
           <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell Book</button>
           <button className={activeTab === 'donations' ? 'active' : ''} onClick={() => setItemsTab('donations')}>Donations & PDFs 🎁</button>
+          <button className={activeTab === 'teachers' ? 'active' : ''} onClick={() => setItemsTab('teachers')} style={{ background: '#2980b9', color: 'white' }}>
+            Teachers Notes & Syllabuses 👨‍🏫
+          </button>
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>
             Wishlist {wishlistMatchCount > 0 && <span style={{ background: '#e74c3c', color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '0.75rem', marginLeft: '5px' }}>{wishlistMatchCount}</span>}
           </button>
@@ -699,7 +800,7 @@ function App() {
       <main className="content">
         <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>
-            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
+            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>} | Helpline: <a href="mailto:EduShare.Connect.1@gmail.com" style={{ color: '#3f51b5', fontWeight: 'bold' }}>EduShare.Connect.1@gmail.com</a>
           </span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: currentBadge.color, color: 'white', fontWeight: 'bold' }}>
@@ -890,6 +991,87 @@ function App() {
                   Send
                 </button>
               </form>
+            </div>
+          </div>
+        )}
+
+        {/* TEACHERS NOTES & SYLLABUSES HUB */}
+        {activeTab === 'teachers' && (
+          <div className="feed-section">
+            <h2>👨‍🏫 Teachers Notes & Syllabuses Hub</h2>
+            <p className="subtitle">Official curriculum syllabuses and chapter lecture notes uploaded directly by faculty and verified instructors.</p>
+
+            {tnSuccessMsg && <div className="alert success">{tnSuccessMsg}</div>}
+
+            {/* Upload form visible to teachers / admin / helpline */}
+            {isTeacher ? (
+              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #2980b9' }}>
+                <h3 style={{ marginTop: 0, color: '#1a237e' }}>📤 Upload Teacher Notes or Syllabus PDF</h3>
+                <form onSubmit={handleUploadTeacherNotes} className="book-form">
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Title / Topic Name</label>
+                      <input type="text" value={tnTitle} onChange={(e) => setTnTitle(e.target.value)} placeholder="e.g. Unit 3 Lecture Notes - Calculus" required />
+                    </div>
+                    <div className="form-group">
+                      <label>Course / Subject Code</label>
+                      <input type="text" value={tnCourse} onChange={(e) => setTnCourse(e.target.value)} placeholder="e.g. BTECH-MATH101" required />
+                    </div>
+                  </div>
+                  <div className="form-row">
+                    <div className="form-group">
+                      <label>Subject Name</label>
+                      <input type="text" value={tnSubject} onChange={(e) => setTnSubject(e.target.value)} placeholder="e.g. Mathematics" required />
+                    </div>
+                    <div className="form-group">
+                      <label>Resource Category</label>
+                      <select value={tnType} onChange={(e) => setTnType(e.target.value)}>
+                        <option value="Lecture Notes">Lecture Notes</option>
+                        <option value="Syllabus">Syllabus & Marking Scheme</option>
+                        <option value="Assignment">Assignment Guidelines</option>
+                      </select>
+                    </div>
+                  </div>
+                  <div className="form-group">
+                    <label>PDF / Drive Link URL</label>
+                    <input type="url" value={tnPdfLink} onChange={(e) => setTnPdfLink(e.target.value)} placeholder="https://drive.google.com/... or sample PDF link" />
+                  </div>
+                  <button type="submit" className="submit-btn" style={{ background: '#2980b9' }}>Publish Teacher Resource 👨‍🏫</button>
+                </form>
+              </div>
+            ) : (
+              <div style={{ background: '#eef2f7', padding: '12px 16px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.9rem', color: '#555' }}>
+                💡 Note: Faculty upload access is enabled for teachers and helpline staff (<strong>EduShare.Connect.1@gmail.com</strong>).
+              </div>
+            )}
+
+            <h3>Available Faculty Notes & Syllabuses:</h3>
+            <div className="book-grid" style={{ marginTop: '15px' }}>
+              {teachersNotes.map((note) => {
+                const isOwner = note.uploader && note.uploader.toLowerCase() === currentUserEmail.toLowerCase();
+                const canDeleteNote = isOwner || isAdmin;
+
+                return (
+                  <div key={note.id} className="book-card" style={{ borderTop: '4px solid #2980b9', position: 'relative' }}>
+                    {canDeleteNote && (
+                      <button className="delete-btn" onClick={() => handleDeleteTeacherNote(note.id, note.uploader)} title="Remove Note">
+                        &times;
+                      </button>
+                    )}
+                    <span style={{ background: '#2980b9', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      👨‍🏫 {note.type.toUpperCase()}
+                    </span>
+                    <div className="course-tag" style={{ marginTop: '8px' }}>{note.course}</div>
+                    <h3>{note.title}</h3>
+                    <p className="author">Subject: {note.subject}</p>
+                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '10px' }}>Uploaded by: <strong>{note.uploader}</strong></p>
+                    
+                    <a href={note.pdfLink || '#'} target="_blank" rel="noopener noreferrer" className="contact-btn" style={{ background: '#2980b9', display: 'block', textAlign: 'center', textDecoration: 'none', color: 'white' }}>
+                      Download Official PDF 📂
+                    </a>
+                  </div>
+                );
+              })}
             </div>
           </div>
         )}
@@ -1115,6 +1297,14 @@ function App() {
             <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong> (Trust Rating: <strong>{getPeerRating(currentUserEmail)}</strong>)</p>
 
             {ratingSuccessMsg && <div className="alert success">{ratingSuccessMsg}</div>}
+
+            {/* Helpline Contact Card */}
+            <div style={{ background: '#fff3e0', borderLeft: '4px solid #d35400', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px' }}>
+              <h3 style={{ margin: '0 0 5px 0', color: '#d35400', fontSize: '1.05rem' }}>☎️ Official Support Helpline</h3>
+              <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
+                Need help with your account, textbook listings, or teacher resources? Contact our support team at <a href="mailto:EduShare.Connect.1@gmail.com" style={{ color: '#d35400', fontWeight: 'bold' }}>EduShare.Connect.1@gmail.com</a>.
+              </p>
+            </div>
 
             {/* User Rating Submission Form */}
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #f39c12' }}>

@@ -70,9 +70,11 @@ function App() {
   const [ratingReviewText, setRatingReviewText] = useState('');
   const [ratingSuccessMsg, setRatingSuccessMsg] = useState('');
 
-  // Check if current user is admin or designated teacher
+  // Check if current user is admin (Strictly admin@edushare.ac.in)
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
-  const isTeacher = currentUserEmail.trim().toLowerCase().includes('teacher') || currentUserEmail.trim().toLowerCase() === 'edushare.connect.1@gmail.com' || isAdmin;
+  
+  // Faculty / Uploader Check: Any email ending with .ac.in (or admin) has access to upload teacher notes
+  const isTeacher = currentUserEmail.trim().toLowerCase().endsWith('.ac.in') || isAdmin;
 
   // Fetch books, donations, AND teachers notes from Firebase Cloud Firestore on login
   useEffect(() => {
@@ -124,8 +126,8 @@ function App() {
           setTeachersNotes(teacherNotesList);
         } else {
           setTeachersNotes([
-            { id: 'tn1', title: 'Complete Semester Syllabus & Marking Scheme', subject: 'Mathematics', course: 'BTECH-MATH101', type: 'Syllabus', uploader: 'EduShare.Connect.1@gmail.com', pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
-            { id: 'tn2', title: 'Unit 1 & 2 Lecture Notes - Quantum Physics', subject: 'Physics', course: 'BTECH-PHY101', type: 'Lecture Notes', uploader: 'EduShare.Connect.1@gmail.com', pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
+            { id: 'tn1', title: 'Complete Semester Syllabus & Marking Scheme', subject: 'Mathematics', course: 'BTECH-MATH101', type: 'Syllabus', uploader: 'faculty@university.ac.in', pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' },
+            { id: 'tn2', title: 'Unit 1 & 2 Lecture Notes - Quantum Physics', subject: 'Physics', course: 'BTECH-PHY101', type: 'Lecture Notes', uploader: 'faculty@university.ac.in', pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
           ]);
         }
 
@@ -183,24 +185,24 @@ function App() {
     }
   }, [currentUserEmail]);
 
-  // Handle Secure Authentication with @gmail.com Check
+  // Handle Secure Authentication with @gmail.com & .ac.in Check
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     const emailInput = loginEmail.trim().toLowerCase();
 
     // Prevent login using the helpline contact email since it is display/contact only
     if (emailInput === 'edushare.connect.1@gmail.com') {
-      alert("Notice: 'EduShare.Connect.1@gmail.com' is designated strictly as our official Support & Helpline contact email and cannot be used to log in as a user account. Please sign in with your personal student or admin account.");
+      alert("Notice: 'EduShare.Connect.1@gmail.com' is designated strictly as our official Support & Helpline contact email and cannot be used to log in as a user account. Please sign in with your personal student or institutional account.");
       return;
     }
 
-    // Enforce @gmail.com check unless logging in as admin
-    if (emailInput !== 'admin@edushare.ac.in') {
-      const isValidGmail = emailInput.endsWith('@gmail.com');
-      if (!isValidGmail) {
-        alert("Email Restriction Error: Registration & login require a valid '@gmail.com' address.");
-        return;
-      }
+    // Enforce valid email format: must end with @gmail.com or .ac.in
+    const isValidGmail = emailInput.endsWith('@gmail.com');
+    const isValidAcIn = emailInput.endsWith('.ac.in');
+
+    if (!isValidGmail && !isValidAcIn) {
+      alert("Email Restriction Error: Registration & login require a valid '@gmail.com' or '.ac.in' address.");
+      return;
     }
 
     try {
@@ -354,7 +356,7 @@ function App() {
   const handleUploadTeacherNotes = async (e) => {
     e.preventDefault();
     if (!isTeacher) {
-      alert("Unauthorized: Only teachers and helpline staff can upload verified lecture notes and syllabuses!");
+      alert("Unauthorized: Only accounts with .ac.in addresses or admin can upload verified lecture notes and syllabuses!");
       return;
     }
     if (!tnTitle || !tnCourse || !tnSubject) {
@@ -383,7 +385,7 @@ function App() {
     }
   };
 
-  // Handle deleting a teacher note (teacher or admin)
+  // Handle deleting a teacher note (uploader or admin)
   const handleDeleteTeacherNote = async (noteId, uploaderEmail) => {
     const isOwner = uploaderEmail && uploaderEmail.toLowerCase() === currentUserEmail.toLowerCase();
     if (!isOwner && !isAdmin) {
@@ -638,13 +640,13 @@ function App() {
             
             <div className="scroll-content-box">
               <div className="vision-mission-block">
-                <h3>🛡️ SECURE GMAIL ACCESS & HELPLINE</h3>
-                <p>Platform secure access utilizes verified <strong>@gmail.com</strong> accounts. Need assistance? Contact our official helpline at <strong>EduShare.Connect.1@gmail.com</strong> (contact & support only; login disabled for this helpline address).</p>
+                <h3>🛡️ SECURE PORTAL ACCESS & HELPLINE</h3>
+                <p>Platform access supports verified <strong>@gmail.com</strong> or institutional <strong>.ac.in</strong> accounts. Need assistance? Contact our official helpline at <strong>EduShare.Connect.1@gmail.com</strong> (contact & support only; login disabled for this helpline address).</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>👨‍🏫 TEACHERS & SYLLABUS HUB</h3>
-                <p>Access official lecture notes, curriculum guides, and syllabuses uploaded directly by faculty members.</p>
+                <h3>👨‍🏫 ACADEMIC & INSTITUTIONAL NOTES HUB</h3>
+                <p>Faculty members and users with <strong>.ac.in</strong> institutional emails can upload verified lecture notes, curriculum guides, and syllabuses.</p>
               </div>
 
               <div className="vision-mission-block">
@@ -656,17 +658,17 @@ function App() {
             {/* IN MOBILE VIEW: RENDER LOGIN CARD RIGHT UNDER THE VISION / HERO CONTENT BOX */}
             {deviceMode === 'mobile' && (
               <div className="login-card" style={{ marginTop: '20px', width: '100%', boxSizing: 'border-box' }}>
-                <h2>{isSignUpMode ? '📝 Gmail Account Sign-Up' : '🔐 Gmail Portal Sign-In'}</h2>
-                <p className="subtitle">{isSignUpMode ? 'Use your @gmail.com address' : 'Enter your @gmail.com account.'}</p>
+                <h2>{isSignUpMode ? '📝 Account Sign-Up' : '🔐 Portal Sign-In'}</h2>
+                <p className="subtitle">{isSignUpMode ? 'Use your @gmail.com or .ac.in address' : 'Enter your @gmail.com or .ac.in account.'}</p>
                 
                 <form onSubmit={handleAuthSubmit} className="book-form">
                   <div className="form-group">
-                    <label>Gmail Address (@gmail.com)</label>
+                    <label>Email Address (@gmail.com or .ac.in)</label>
                     <input 
                       type="email" 
                       value={loginEmail} 
                       onChange={(e) => setLoginEmail(e.target.value)} 
-                      placeholder="student@gmail.com" 
+                      placeholder="student@gmail.com or faculty@university.ac.in" 
                       required 
                     />
                   </div>
@@ -681,7 +683,7 @@ function App() {
                     />
                   </div>
                   <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
-                    {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
+                    {isSignUpMode ? 'Register Account 🚀' : 'Login Securely 🚀'}
                   </button>
                 </form>
 
@@ -710,17 +712,17 @@ function App() {
           {/* IN DESKTOP VIEW: RENDER LOGIN CARD SIDE-BY-SIDE */}
           {deviceMode !== 'mobile' && (
             <div className="login-card">
-              <h2>{isSignUpMode ? '📝 Gmail Account Sign-Up' : '🔐 Gmail Portal Sign-In'}</h2>
-              <p className="subtitle">{isSignUpMode ? 'Use your @gmail.com address' : 'Enter your @gmail.com account.'}</p>
+              <h2>{isSignUpMode ? '📝 Account Sign-Up' : '🔐 Portal Sign-In'}</h2>
+              <p className="subtitle">{isSignUpMode ? 'Use your @gmail.com or .ac.in address' : 'Enter your @gmail.com or .ac.in account.'}</p>
               
               <form onSubmit={handleAuthSubmit} className="book-form">
                 <div className="form-group">
-                  <label>Gmail Address (@gmail.com)</label>
+                  <label>Email Address (@gmail.com or .ac.in)</label>
                   <input 
                     type="email" 
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
-                    placeholder="student@gmail.com" 
+                    placeholder="student@gmail.com or faculty@university.ac.in" 
                     required 
                   />
                 </div>
@@ -735,7 +737,7 @@ function App() {
                   />
                 </div>
                 <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
-                  {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
+                  {isSignUpMode ? 'Register Account 🚀' : 'Login Securely 🚀'}
                 </button>
               </form>
 
@@ -989,14 +991,14 @@ function App() {
         {activeTab === 'teachers' && (
           <div className="feed-section">
             <h2>👨‍🏫 Teachers Notes & Syllabuses Hub</h2>
-            <p className="subtitle">Official curriculum syllabuses and chapter lecture notes uploaded directly by faculty and verified instructors.</p>
+            <p className="subtitle">Official curriculum syllabuses and chapter lecture notes uploaded directly by institutional faculty (.ac.in accounts).</p>
 
             {tnSuccessMsg && <div className="alert success">{tnSuccessMsg}</div>}
 
-            {/* Upload form visible to teachers / admin */}
+            {/* Upload form visible to users with .ac.in email or admin */}
             {isTeacher ? (
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #2980b9' }}>
-                <h3 style={{ marginTop: 0, color: '#1a237e' }}>📤 Upload Teacher Notes or Syllabus PDF</h3>
+                <h3 style={{ marginTop: 0, color: '#1a237e' }}>📤 Upload Teacher Notes or Syllabus PDF (.ac.in Access)</h3>
                 <form onSubmit={handleUploadTeacherNotes} className="book-form">
                   <div className="form-row">
                     <div className="form-group">
@@ -1031,7 +1033,7 @@ function App() {
               </div>
             ) : (
               <div style={{ background: '#eef2f7', padding: '12px 16px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.9rem', color: '#555' }}>
-                💡 Note: Faculty upload access is enabled for teachers and admin accounts. For any assistance, reach out via our helpline contact at <strong style={{ color: '#3f51b5' }}>EduShare.Connect.1@gmail.com</strong>.
+                💡 Note: Faculty upload access is enabled exclusively for institutional accounts ending with <strong>.ac.in</strong> and admin. For any assistance, reach out via our helpline contact at <strong style={{ color: '#3f51b5' }}>EduShare.Connect.1@gmail.com</strong>.
               </div>
             )}
 
@@ -1207,7 +1209,7 @@ function App() {
               </div>
 
               <div className="form-group">
-                <label>Gmail Address</label>
+                <label>Email Address</label>
                 <input 
                   type="email" 
                   value={formSeller} 

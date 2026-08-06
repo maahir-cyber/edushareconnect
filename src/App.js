@@ -57,7 +57,7 @@ function App() {
   const [userRatings, setUserRatings] = useState(() => {
     const savedRatings = localStorage.getItem('edushare_user_ratings');
     return savedRatings ? JSON.parse(savedRatings) : {
-      'admin@edushare.ac.in': { totalStars: 25, count: 5 } // 5.0 default rating for admin
+      'admin@edushare.ac.in': { totalStars: 25, count: 5 }
     };
   });
 
@@ -183,13 +183,19 @@ function App() {
     }
   }, [currentUserEmail]);
 
-  // Handle Secure Authentication with @gmail.com Check & Helpline Support Support
+  // Handle Secure Authentication with @gmail.com Check
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
     const emailInput = loginEmail.trim().toLowerCase();
 
-    // Enforce @gmail.com check unless logging in as admin or helpline
-    if (emailInput !== 'admin@edushare.ac.in' && emailInput !== 'edushare.connect.1@gmail.com') {
+    // Prevent login using the helpline contact email since it is display/contact only
+    if (emailInput === 'edushare.connect.1@gmail.com') {
+      alert("Notice: 'EduShare.Connect.1@gmail.com' is designated strictly as our official Support & Helpline contact email and cannot be used to log in as a user account. Please sign in with your personal student or admin account.");
+      return;
+    }
+
+    // Enforce @gmail.com check unless logging in as admin
+    if (emailInput !== 'admin@edushare.ac.in') {
       const isValidGmail = emailInput.endsWith('@gmail.com');
       if (!isValidGmail) {
         alert("Email Restriction Error: Registration & login require a valid '@gmail.com' address.");
@@ -210,14 +216,6 @@ function App() {
     } catch (error) {
       alert("Authentication Error: " + error.message);
     }
-  };
-
-  // Quick Login as Helpline / Support Team
-  const handleHelplineLogin = async () => {
-    setLoginEmail('EduShare.Connect.1@gmail.com');
-    setCurrentUserEmail('edushare.connect.1@gmail.com');
-    setFormSeller('edushare.connect.1@gmail.com');
-    setIsLoggedIn(true);
   };
 
   // Handle Logout
@@ -641,7 +639,7 @@ function App() {
             <div className="scroll-content-box">
               <div className="vision-mission-block">
                 <h3>🛡️ SECURE GMAIL ACCESS & HELPLINE</h3>
-                <p>Platform secure access utilizes verified <strong>@gmail.com</strong> accounts. Need assistance? Contact our official helpline at <strong>EduShare.Connect.1@gmail.com</strong>.</p>
+                <p>Platform secure access utilizes verified <strong>@gmail.com</strong> accounts. Need assistance? Contact our official helpline at <strong>EduShare.Connect.1@gmail.com</strong> (contact & support only; login disabled for this helpline address).</p>
               </div>
 
               <div className="vision-mission-block">
@@ -668,7 +666,7 @@ function App() {
                       type="email" 
                       value={loginEmail} 
                       onChange={(e) => setLoginEmail(e.target.value)} 
-                      placeholder="student@gmail.com (or EduShare.Connect.1@gmail.com)" 
+                      placeholder="student@gmail.com" 
                       required 
                     />
                   </div>
@@ -686,10 +684,6 @@ function App() {
                     {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
                   </button>
                 </form>
-
-                <button onClick={handleHelplineLogin} style={{ width: '100%', marginTop: '10px', background: '#d35400', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                  ☎️ Quick Login as Helpline (EduShare.Connect.1@gmail.com)
-                </button>
 
                 <div style={{ marginTop: '10px', textAlign: 'center' }}>
                   <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
@@ -726,7 +720,7 @@ function App() {
                     type="email" 
                     value={loginEmail} 
                     onChange={(e) => setLoginEmail(e.target.value)} 
-                    placeholder="student@gmail.com (or EduShare.Connect.1@gmail.com)" 
+                    placeholder="student@gmail.com" 
                     required 
                   />
                 </div>
@@ -744,10 +738,6 @@ function App() {
                   {isSignUpMode ? 'Register Gmail Account 🚀' : 'Login Securely 🚀'}
                 </button>
               </form>
-
-              <button onClick={handleHelplineLogin} style={{ width: '100%', marginTop: '10px', background: '#d35400', color: '#fff', border: 'none', padding: '10px', borderRadius: '6px', fontWeight: 'bold', cursor: 'pointer' }}>
-                ☎️ Quick Login as Helpline (EduShare.Connect.1@gmail.com)
-              </button>
 
               <div style={{ marginTop: '10px', textAlign: 'center' }}>
                 <button onClick={() => setDeviceMode('unselected')} style={{ background: 'none', border: 'none', color: '#666', cursor: 'pointer', fontSize: '0.8rem', textDecoration: 'underline' }}>
@@ -800,7 +790,7 @@ function App() {
       <main className="content">
         <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>
-            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>} | Helpline: <a href="mailto:EduShare.Connect.1@gmail.com" style={{ color: '#3f51b5', fontWeight: 'bold' }}>EduShare.Connect.1@gmail.com</a>
+            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>} | Helpline Contact: <a href="mailto:EduShare.Connect.1@gmail.com" style={{ color: '#3f51b5', fontWeight: 'bold' }}>EduShare.Connect.1@gmail.com</a>
           </span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
             <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: currentBadge.color, color: 'white', fontWeight: 'bold' }}>
@@ -1003,7 +993,7 @@ function App() {
 
             {tnSuccessMsg && <div className="alert success">{tnSuccessMsg}</div>}
 
-            {/* Upload form visible to teachers / admin / helpline */}
+            {/* Upload form visible to teachers / admin */}
             {isTeacher ? (
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #2980b9' }}>
                 <h3 style={{ marginTop: 0, color: '#1a237e' }}>📤 Upload Teacher Notes or Syllabus PDF</h3>
@@ -1041,7 +1031,7 @@ function App() {
               </div>
             ) : (
               <div style={{ background: '#eef2f7', padding: '12px 16px', borderRadius: '6px', marginBottom: '20px', fontSize: '0.9rem', color: '#555' }}>
-                💡 Note: Faculty upload access is enabled for teachers and helpline staff (<strong>EduShare.Connect.1@gmail.com</strong>).
+                💡 Note: Faculty upload access is enabled for teachers and admin accounts. For any assistance, reach out via our helpline contact at <strong style={{ color: '#3f51b5' }}>EduShare.Connect.1@gmail.com</strong>.
               </div>
             )}
 
@@ -1302,7 +1292,7 @@ function App() {
             <div style={{ background: '#fff3e0', borderLeft: '4px solid #d35400', padding: '15px 20px', borderRadius: '8px', marginBottom: '25px' }}>
               <h3 style={{ margin: '0 0 5px 0', color: '#d35400', fontSize: '1.05rem' }}>☎️ Official Support Helpline</h3>
               <p style={{ margin: 0, fontSize: '0.9rem', color: '#555' }}>
-                Need help with your account, textbook listings, or teacher resources? Contact our support team at <a href="mailto:EduShare.Connect.1@gmail.com" style={{ color: '#d35400', fontWeight: 'bold' }}>EduShare.Connect.1@gmail.com</a>.
+                Need help with your account, textbook listings, or teacher resources? Contact our support team at <a href="mailto:EduShare.Connect.1@gmail.com" style={{ color: '#d35400', fontWeight: 'bold' }}>EduShare.Connect.1@gmail.com</a>. (Note: This email is dedicated strictly for support and inquiries and cannot be used for user login).
               </p>
             </div>
 

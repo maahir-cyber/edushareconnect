@@ -18,6 +18,7 @@ function App() {
 
   const [activeTab, setItemsTab] = useState('feed');
   const [books, setBooks] = useState([]);
+  const [donations, setDonations] = useState([]);
   const [loading, setLoading] = useState(true);
 
   // Search and Filter States
@@ -33,19 +34,7 @@ function App() {
   const [meetupTime, setMeetupTime] = useState('');
   const [meetupSuccessMsg, setMeetupSuccessMsg] = useState('');
 
-  // Donations State with localStorage persistence (Now includes digital PDFs/Notes support)
-  const [donations, setDonations] = useState(() => {
-    const savedDonations = localStorage.getItem('edushare_donations');
-    return savedDonations ? JSON.parse(savedDonations) : [
-      { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@gmail.com', location: 'Science Block', isDigital: false },
-      { id: 'd2', title: 'Class 10 Foundation Mathematics Formula Sheet', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Digital PDF', donor: 'sneha@gmail.com', location: 'Online Drive', isDigital: true, pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('edushare_donations', JSON.stringify(donations));
-  }, [donations]);
-
+  // Donation Form State
   const [donTitle, setDonTitle] = useState('');
   const [donAuthor, setDonAuthor] = useState('');
   const [donCourse, setDonCourse] = useState('');
@@ -75,14 +64,16 @@ function App() {
   // Check if current user is admin
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
 
-  // Fetch books from Firebase Cloud Firestore on page load
+  // Fetch books AND donations from Firebase Cloud Firestore on login
   useEffect(() => {
     if (!isLoggedIn) return;
 
-    const fetchBooks = async () => {
+    const fetchCloudData = async () => {
+      setLoading(true);
       try {
-        const querySnapshot = await getDocs(collection(db, "books"));
-        const booksList = querySnapshot.docs.map(docSnap => ({
+        // Fetch Books
+        const booksSnapshot = await getDocs(collection(db, "books"));
+        const booksList = booksSnapshot.docs.map(docSnap => ({
           id: docSnap.id,
           ...docSnap.data()
         }));
@@ -95,14 +86,31 @@ function App() {
             { id: '2', title: 'Concepts of Physics Vol 1', author: 'H.C. Verma', course: 'BTECH-PHY101', originalPrice: 450, listPrice: 200, condition: 'Good', seller: 'priya@gmail.com', location: 'Campus Gate 1' }
           ]);
         }
+
+        // Fetch Donations from Firestore Cloud
+        const donationsSnapshot = await getDocs(collection(db, "donations"));
+        const donationsList = donationsSnapshot.docs.map(docSnap => ({
+          id: docSnap.id,
+          ...docSnap.data()
+        }));
+
+        if (donationsList.length > 0) {
+          setDonations(donationsList);
+        } else {
+          setDonations([
+            { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@gmail.com', location: 'Science Block', isDigital: false },
+            { id: 'd2', title: 'Class 10 Foundation Mathematics Formula Sheet', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Digital PDF', donor: 'sneha@gmail.com', location: 'Online Drive', isDigital: true, pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
+          ]);
+        }
+
       } catch (error) {
-        console.error("Error fetching books: ", error);
+        console.error("Error fetching cloud data: ", error);
       } finally {
         setLoading(false);
       }
     };
 
-    fetchBooks();
+    fetchCloudData();
   }, [isLoggedIn]);
 
   // Preferences state with localStorage (Wishlist Alerts)
@@ -211,21 +219,27 @@ function App() {
       return;
     }
 
-    // If listing price is 0, shift it automatically to Donations / Giveaways instead of Marketplace
+    // If listing price is 0, shift it automatically to Firebase Cloud Donations
     if (listed === 0) {
       const newDonationItem = {
-        id: Date.now().toString(),
         title: formTitle,
         author: formAuthor,
         course: formCourse.toUpperCase(),
         condition: formCondition,
         donor: sellerEmail,
         location: formLocation || 'Main Campus Library',
-        isDigital: false
+        isDigital: false,
+        createdAt: serverTimestamp()
       };
 
-      setDonations([newDonationItem, ...donations]);
-      setSuccessMsg('🎉 Listing price was ₹0! Automatically shifted your book to Free Book Donations & Giveaways.');
+      try {
+        const docRef = await addDoc(collection(db, "donations"), newDonationItem);
+        setDonations([{ id: docRef.id, ...newDonationItem }, ...donations]);
+        setSuccessMsg('🎉 Listing price was ₹0! Automatically synced your book to Free Book Cloud Donations & Giveaways.');
+      } catch (err) {
+        console.error("Error adding donation to cloud:", err);
+        setErrorMsg('Failed to sync donation to cloud database.');
+      }
       
       setFormTitle('');
       setFormAuthor('');
@@ -276,6 +290,34 @@ function App() {
     }
   };
 
+  // Handle publishing a new donation to Firebase Cloud
+  const handlePublishDonation = async (e) => {
+    e.preventDefault();
+    if (!donTitle || !donCourse) { alert('Please fill in required fields'); return; }
+
+    const newDonationData = { 
+      title: donTitle, 
+      author: donAuthor || 'Various', 
+      course: donCourse.toUpperCase(), 
+      condition: donIsDigital ? 'Digital PDF' : donCondition, 
+      donor: currentUserEmail, 
+      location: donIsDigital ? 'Online Drive' : (donLocation || 'Library'),
+      isDigital: donIsDigital,
+      pdfLink: donIsDigital ? (donPdfLink || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf') : '',
+      createdAt: serverTimestamp()
+    };
+
+    try {
+      const docRef = await addDoc(collection(db, "donations"), newDonationData);
+      setDonations([{ id: docRef.id, ...newDonationData }, ...donations]);
+      setDonSuccessMsg('Donation/Digital resource published & synced live to cloud successfully!');
+      setDonTitle(''); setDonAuthor(''); setDonCourse(''); setDonLocation(''); setDonPdfLink('');
+    } catch (err) {
+      console.error("Error saving donation: ", err);
+      alert("Failed to save donation to cloud database.");
+    }
+  };
+
   // Handle deleting a book with security check (owner or admin can delete)
   const handleDeleteBook = async (bookId, bookSeller) => {
     const isOwner = bookSeller && bookSeller.toLowerCase() === currentUserEmail.toLowerCase();
@@ -298,8 +340,8 @@ function App() {
     }
   };
 
-  // Handle deleting a free book donation / giveaway
-  const handleDeleteDonation = (donId, donorEmail) => {
+  // Handle deleting a free book donation / giveaway from Cloud Firestore
+  const handleDeleteDonation = async (donId, donorEmail) => {
     const isOwner = donorEmail && donorEmail.toLowerCase() === currentUserEmail.toLowerCase();
     
     if (!isOwner && !isAdmin) {
@@ -308,7 +350,15 @@ function App() {
     }
 
     if (window.confirm("Are you sure you want to remove this free giveaway?")) {
-      setDonations(donations.filter(item => item.id !== donId));
+      try {
+        if (donId.length > 5) {
+          await deleteDoc(doc(db, "donations", donId));
+        }
+        setDonations(donations.filter(item => item.id !== donId));
+      } catch (error) {
+        console.error("Error deleting donation: ", error);
+        alert("Failed to delete donation from cloud database.");
+      }
     }
   };
 
@@ -412,7 +462,7 @@ function App() {
   const getPeerRating = (email) => {
     if (!email) return 'New (5.0 ⭐)';
     const data = userRatings[email.toLowerCase()];
-    if (!data || data.count === 0) return 'Gmail Verified Student (5.0 ⭐)';
+    if (!data || data.count === 0) return 'Student (5.0 ⭐)';
     const avg = (data.totalStars / data.count).toFixed(1);
     return `${avg} ⭐ (${data.count} ratings)`;
   };
@@ -495,7 +545,7 @@ function App() {
           
           {/* Hero Card */}
           <div className="scrollable-hero-card">
-            <div className="hero-badge">✨ Gmail Verified Campus Network</div>
+            <div className="hero-badge">✨ Campus Network</div>
             <h1 className="hero-title">EDUSHARE CONNECT</h1>
             
             <div className="scroll-content-box">
@@ -847,31 +897,14 @@ function App() {
         {/* DONATIONS & DIGITAL PDF / NOTES HUB */}
         {activeTab === 'donations' && (
           <div className="feed-section">
-            <h2>🎁 Free Book Donations & Digital Study Notes Hub</h2>
-            <p className="subtitle">Share free physical textbooks or upload class notes, formula sheets, and study guide PDFs instantly for peers.</p>
+            <h2>🎁 Cloud Free Book Donations & Digital Study Notes Hub</h2>
+            <p className="subtitle">Share free physical textbooks or upload class notes, formula sheets, and study guide PDFs instantly for peers across devices.</p>
 
             {donSuccessMsg && <div className="alert success">{donSuccessMsg}</div>}
 
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
               <h3 style={{ marginTop: 0, color: '#1a237e' }}>📂 Donate Physical Book or Upload Digital PDF Notes</h3>
-              <form onSubmit={(e) => {
-                e.preventDefault();
-                if (!donTitle || !donCourse) { alert('Please fill required fields'); return; }
-                const newDon = { 
-                  id: Date.now().toString(), 
-                  title: donTitle, 
-                  author: donAuthor || 'Various', 
-                  course: donCourse.toUpperCase(), 
-                  condition: donIsDigital ? 'Digital PDF' : donCondition, 
-                  donor: currentUserEmail, 
-                  location: donIsDigital ? 'Online Drive' : (donLocation || 'Library'),
-                  isDigital: donIsDigital,
-                  pdfLink: donIsDigital ? (donPdfLink || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf') : ''
-                };
-                setDonations([newDon, ...donations]);
-                setDonSuccessMsg('Donation/Digital resource published successfully!');
-                setDonTitle(''); setDonAuthor(''); setDonCourse(''); setDonLocation(''); setDonPdfLink('');
-              }} className="book-form">
+              <form onSubmit={handlePublishDonation} className="book-form">
                 <div className="form-row">
                   <div className="form-group">
                     <label>Title / Notes Name</label>
@@ -954,7 +987,7 @@ function App() {
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
-            <p className="subtitle">Tip: Setting your listing price to <strong>₹0</strong> will automatically shift your book into Free Donations! 🎁</p>
+            <p className="subtitle">Tip: Setting your listing price to <strong>₹0</strong> will automatically shift your book into Cloud Free Donations! 🎁</p>
             
             {errorMsg && <div className="alert error">{errorMsg}</div>}
             {successMsg && <div className="alert success">{successMsg}</div>}

@@ -69,7 +69,7 @@ function App() {
   const [donTitle, setDonTitle] = useState('');
   const [donAuthor, setDonAuthor] = useState('');
   const [donCourse, setDonCourse] = useState('');
-  const [donCondition, setDonCondition] = useState('Good');
+  const [donCondition] = useState('Good');
   const [donLocation, setDonLocation] = useState('');
   const [donIsDigital, setDonIsDigital] = useState(false);
   const [donPdfLink, setDonPdfLink] = useState('');

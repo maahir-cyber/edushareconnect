@@ -45,17 +45,20 @@ function App() {
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
   const [selectedConditionFilter, setSelectedConditionFilter] = useState('ALL');
 
-  // In-App Chat Modal State
+  // In-App Chat Modal State & Meetup Scheduler State
   const [chatBook, setChatBook] = useState(null);
   const [chatMessages, setChatMessages] = useState([]);
   const [newMessageText, setNewMessageText] = useState('');
+  const [meetupLocation, setMeetupLocation] = useState('Central Library');
+  const [meetupTime, setMeetupTime] = useState('');
+  const [meetupSuccessMsg, setMeetupSuccessMsg] = useState('');
 
-  // Donations State with localStorage persistence
+  // Donations State with localStorage persistence (Now includes digital PDFs/Notes support - Feature 3)
   const [donations, setDonations] = useState(() => {
     const savedDonations = localStorage.getItem('edushare_donations');
     return savedDonations ? JSON.parse(savedDonations) : [
-      { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@college.ac.in', location: 'Science Block' },
-      { id: 'd2', title: 'Class 10 Foundation Mathematics', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Fair', donor: 'sneha@school.edu', location: 'Main Gate' }
+      { id: 'd1', title: 'Old Chemistry Lab Manual & Notes', author: 'Department of Chemistry', course: 'BTECH-CHEM', condition: 'Good', donor: 'arjun@college.ac.in', location: 'Science Block', isDigital: false },
+      { id: 'd2', title: 'Class 10 Foundation Mathematics Formula Sheet', author: 'R.D. Sharma', course: 'CLASS10-MATH', condition: 'Digital PDF', donor: 'sneha@school.edu', location: 'Online Drive', isDigital: true, pdfLink: 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf' }
     ];
   });
 
@@ -66,9 +69,45 @@ function App() {
   const [donTitle, setDonTitle] = useState('');
   const [donAuthor, setDonAuthor] = useState('');
   const [donCourse, setDonCourse] = useState('');
-  const [donCondition] = useState('Good');
+  const [donCondition, setDonCondition] = useState('Good');
   const [donLocation, setDonLocation] = useState('');
+  const [donIsDigital, setDonIsDigital] = useState(false);
+  const [donPdfLink, setDonPdfLink] = useState('');
   const [donSuccessMsg, setDonSuccessMsg] = useState('');
+
+  // User Ratings & Peer Trust Score State (Feature 4)
+  const [userRatings, setUserRatings] = useState(() => {
+    const savedRatings = localStorage.getItem('edushare_user_ratings');
+    return savedRatings ? JSON.parse(savedRatings) : {
+      'admin@edushare.ac.in': { totalStars: 25, count: 5 } // 5.0 default rating for admin
+    };
+  });
+
+  useEffect(() => {
+    localStorage.setItem('edushare_user_ratings', JSON.stringify(userRatings));
+  }, [userRatings]);
+
+  const [ratingTargetUser, setRatingTargetUser] = useState('');
+  const [ratingStars, setRatingStars] = useState(5);
+  const [ratingReviewText, setRatingReviewText] = useState('');
+  const [ratingSuccessMsg, setRatingSuccessMsg] = useState('');
+
+  // ISO (In Search Of) Request Board State (Feature 5)
+  const [isoRequests, setIsoRequests] = useState(() => {
+    const savedIso = localStorage.getItem('edushare_iso');
+    return savedIso ? JSON.parse(savedIso) : [
+      { id: 'iso1', course: 'BTECH-CSE201', title: 'Data Structures and Algorithms by Cormen', requester: 'rahul@college.ac.in', budget: '₹300' }
+    ];
+  });
+
+  useEffect(() => {
+    localStorage.setItem('edushare_iso', JSON.stringify(isoRequests));
+  }, [isoRequests]);
+
+  const [isoCourse, setIsoCourse] = useState('');
+  const [isoTitle, setIsoTitle] = useState('');
+  const [isoBudget, setIsoBudget] = useState('');
+  const [isoSuccessMsg, setIsoSuccessMsg] = useState('');
 
   // Check if current user is admin
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
@@ -127,7 +166,7 @@ function App() {
   const [wishlistSuccessMsg, setWishlistSuccessMsg] = useState('');
   const [wishlistErrorMsg, setWishlistErrorMsg] = useState('');
 
-  // Form State for Listing a Book (Image uploading removed entirely)
+  // Form State for Listing a Book
   const [formTitle, setFormTitle] = useState('');
   const [formAuthor, setFormAuthor] = useState('');
   const [formCourse, setFormCourse] = useState('');
@@ -147,19 +186,29 @@ function App() {
     }
   }, [currentUserEmail]);
 
-  // Handle Secure Authentication (Login or Sign Up)
+  // Handle Secure Authentication with College Domain Check (Feature 1)
   const handleAuthSubmit = async (e) => {
     e.preventDefault();
+    const emailInput = loginEmail.trim().toLowerCase();
+
+    // Enforce College Domain Check (.ac.in or .edu) unless logging in as admin
+    if (emailInput !== 'admin@edushare.ac.in') {
+      const isValidDomain = emailInput.endsWith('.ac.in') || emailInput.endsWith('.edu');
+      if (!isValidDomain) {
+        alert("Domain Restriction Error: Registration & login require a valid institutional email address ending in '.ac.in' or '.edu'.");
+        return;
+      }
+    }
+
     try {
       if (isSignUpMode) {
         await createUserWithEmailAndPassword(auth, loginEmail, loginPassword);
-        alert("Account created successfully! You are now logged in.");
+        alert("Verified Institutional Account created successfully! You are now logged in.");
       } else {
         await signInWithEmailAndPassword(auth, loginEmail, loginPassword);
       }
-      const loggedEmail = loginEmail.trim();
-      setCurrentUserEmail(loggedEmail);
-      setFormSeller(loggedEmail);
+      setCurrentUserEmail(emailInput);
+      setFormSeller(emailInput);
       setIsLoggedIn(true);
     } catch (error) {
       alert("Authentication Error: " + error.message);
@@ -208,7 +257,8 @@ function App() {
         course: formCourse.toUpperCase(),
         condition: formCondition,
         donor: sellerEmail,
-        location: formLocation || 'Main Campus Library'
+        location: formLocation || 'Main Campus Library',
+        isDigital: false
       };
 
       setDonations([newDonationItem, ...donations]);
@@ -377,10 +427,79 @@ function App() {
       setNewMessageText('');
     } catch (err) {
       console.error("Error sending message:", err);
-      // Fallback local append if offline
       setChatMessages([...chatMessages, { id: Date.now().toString(), sender: currentUserEmail, text: newMessageText }]);
       setNewMessageText('');
     }
+  };
+
+  // Handle Meetup Scheduler Submission (Feature 2 / Interactive enhancement)
+  const handleScheduleMeetup = (e) => {
+    e.preventDefault();
+    if (!meetupTime) {
+      alert('Please select a valid time slot for your campus meetup.');
+      return;
+    }
+    setMeetupSuccessMsg(`🤝 Campus meetup scheduled successfully at "${meetupLocation}" for ${meetupTime}!`);
+    setTimeout(() => setMeetupSuccessMsg(''), 5000);
+  };
+
+  // Handle User Rating Submission (Feature 4)
+  const handleRatingSubmit = (e) => {
+    e.preventDefault();
+    setRatingSuccessMsg('');
+    const targetEmail = ratingTargetUser.trim().toLowerCase();
+
+    if (!targetEmail) {
+      alert('Please enter a valid peer email address to rate.');
+      return;
+    }
+
+    const existingData = userRatings[targetEmail] || { totalStars: 0, count: 0 };
+    const updatedStars = existingData.totalStars + Number(ratingStars);
+    const updatedCount = existingData.count + 1;
+
+    setUserRatings({
+      ...userRatings,
+      [targetEmail]: { totalStars: updatedStars, count: updatedCount }
+    });
+
+    setRatingSuccessMsg(`⭐ Successfully submitted ${ratingStars}-star rating and review for ${targetEmail}! Peer trust score updated.`);
+    setRatingTargetUser('');
+    setRatingReviewText('');
+  };
+
+  // Calculate peer trust average score for any email
+  const getPeerRating = (email) => {
+    if (!email) return 'New (5.0 ⭐)';
+    const data = userRatings[email.toLowerCase()];
+    if (!data || data.count === 0) return 'Verified Student (5.0 ⭐)';
+    const avg = (data.totalStars / data.count).toFixed(1);
+    return `${avg} ⭐ (${data.count} ratings)`;
+  };
+
+  // Handle ISO Request submission (Feature 5)
+  const handleIsoSubmit = (e) => {
+    e.preventDefault();
+    setIsoSuccessMsg('');
+
+    if (!isoCourse || !isoTitle) {
+      alert('Please fill out the course code and book title.');
+      return;
+    }
+
+    const newIso = {
+      id: Date.now().toString(),
+      course: isoCourse.toUpperCase(),
+      title: isoTitle,
+      requester: currentUserEmail,
+      budget: isoBudget ? `₹${isoBudget}` : 'Negotiable'
+    };
+
+    setIsoRequests([newIso, ...isoRequests]);
+    setIsoSuccessMsg('🎯 ISO request posted successfully! Campus sellers can now view what you are searching for.');
+    setIsoCourse('');
+    setIsoTitle('');
+    setIsoBudget('');
   };
 
   // Calculate Badge System
@@ -392,7 +511,7 @@ function App() {
     if (totalUserContributions >= 5) return { title: '🌟 Elite Campus Donor & Seller', color: '#8e44ad' };
     if (totalUserContributions >= 2) return { title: '⭐ Active Contributor', color: '#2980b9' };
     if (totalUserContributions === 1) return { title: '🌱 Starter Seller', color: '#27ae60' };
-    return { title: '📚 New Academic Explorer', color: '#7f8c8d' };
+    return { title: '📚 Verified Academic Explorer', color: '#27ae60' };
   };
   const currentBadge = getUserBadge();
 
@@ -461,35 +580,35 @@ function App() {
           
           {/* Hero Card */}
           <div className="scrollable-hero-card">
-            <div className="hero-badge">✨ Empowering Education Through Collaboration</div>
+            <div className="hero-badge">✨ Verified Campus Education Network</div>
             <h1 className="hero-title">EDUSHARE CONNECT</h1>
             
             <div className="scroll-content-box">
               <div className="vision-mission-block">
-                <h3>👁️ VISION</h3>
-                <p>To create a global ecosystem where quality education is accessible, collaborative, and personalized for every learner everywhere.</p>
+                <h3>🛡️ TRUST & SAFETY (FEATURE 1)</h3>
+                <p>Platform secure access is strictly restricted to verified institutional emails ending in <strong>.ac.in</strong> or <strong>.edu</strong> for trusted peer collaboration.</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>🚀 MISSION</h3>
-                <p>To connect students, mentors, and resources seamlessly, fostering a dynamic community that facilitates knowledge sharing, mentorship, and interactive learning.</p>
+                <h3>📂 DIGITAL RESOURCE HUB (FEATURE 3)</h3>
+                <p>Share and download class notes, formula sheets, and study guide PDFs instantly alongside physical textbook exchanges.</p>
               </div>
 
               <div className="vision-mission-block">
-                <h3>👥 ABOUT US</h3>
-                <p>EduShare Connect is an innovative platform empowering learners to collaborate, share knowledge, and access mentorship. We build bridges for academic and personal growth.</p>
+                <h3>⭐ PEER REPUTATION (FEATURE 4)</h3>
+                <p>Build and evaluate trust scores with star ratings for every student after completed campus meetups.</p>
               </div>
             </div>
             
             {/* IN MOBILE VIEW: RENDER LOGIN CARD RIGHT UNDER THE VISION / HERO CONTENT BOX */}
             {deviceMode === 'mobile' && (
               <div className="login-card" style={{ marginTop: '20px', width: '100%', boxSizing: 'border-box' }}>
-                <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
-                <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
+                <h2>{isSignUpMode ? '📝 Verified Student Sign-Up' : '🔐 Institutional Portal Sign-In'}</h2>
+                <p className="subtitle">{isSignUpMode ? 'Use your college email (.ac.in / .edu)' : 'Enter your verified student email.'}</p>
                 
                 <form onSubmit={handleAuthSubmit} className="book-form">
                   <div className="form-group">
-                    <label>Email Address</label>
+                    <label>Institutional Email (.ac.in / .edu)</label>
                     <input 
                       type="email" 
                       value={loginEmail} 
@@ -508,8 +627,8 @@ function App() {
                       required 
                     />
                   </div>
-                  <button type="submit" className="submit-btn">
-                    {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
+                  <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
+                    {isSignUpMode ? 'Register Verified Account 🚀' : 'Login Securely 🚀'}
                   </button>
                 </form>
 
@@ -538,12 +657,12 @@ function App() {
           {/* IN DESKTOP VIEW: RENDER LOGIN CARD SIDE-BY-SIDE */}
           {deviceMode !== 'mobile' && (
             <div className="login-card">
-              <h2>{isSignUpMode ? '📝 Create Account' : '🔐 Secure Portal Sign-In'}</h2>
-              <p className="subtitle">{isSignUpMode ? 'Register with a secure password.' : 'Enter your email & correct password.'}</p>
+              <h2>{isSignUpMode ? '📝 Verified Student Sign-Up' : '🔐 Institutional Portal Sign-In'}</h2>
+              <p className="subtitle">{isSignUpMode ? 'Use your college email (.ac.in / .edu)' : 'Enter your verified student email.'}</p>
               
               <form onSubmit={handleAuthSubmit} className="book-form">
                 <div className="form-group">
-                  <label>Email Address</label>
+                  <label>Institutional Email (.ac.in / .edu)</label>
                   <input 
                     type="email" 
                     value={loginEmail} 
@@ -562,8 +681,8 @@ function App() {
                     required 
                   />
                 </div>
-                <button type="submit" className="submit-btn">
-                  {isSignUpMode ? 'Register Account 🚀' : 'Login / Sign In 🚀'}
+                <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
+                  {isSignUpMode ? 'Register Verified Account 🚀' : 'Login Securely 🚀'}
                 </button>
               </form>
 
@@ -598,7 +717,8 @@ function App() {
         <nav className="nav-links" style={{ flexWrap: 'wrap', justifyContent: 'center' }}>
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
           <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell Book</button>
-          <button className={activeTab === 'donations' ? 'active' : ''} onClick={() => setItemsTab('donations')}>Donations 🎁</button>
+          <button className={activeTab === 'donations' ? 'active' : ''} onClick={() => setItemsTab('donations')}>Donations & PDFs 🎁</button>
+          <button className={activeTab === 'iso' ? 'active' : ''} onClick={() => setItemsTab('iso')} style={{ background: '#27ae60', color: 'white' }}>ISO Board 🎯</button>
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>
             Wishlist {wishlistMatchCount > 0 && <span style={{ background: '#e74c3c', color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '0.75rem', marginLeft: '5px' }}>{wishlistMatchCount}</span>}
           </button>
@@ -616,9 +736,12 @@ function App() {
       <main className="content">
         <div style={{ background: '#fff', padding: '10px 15px', borderRadius: '6px', marginBottom: '20px', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 1px 3px rgba(0,0,0,0.05)', flexWrap: 'wrap', gap: '10px' }}>
           <span style={{ fontSize: '0.9rem', color: '#555' }}>
-            User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
+            Verified User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
           </span>
-          <div>
+          <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+            <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: '#27ae60', color: 'white', fontWeight: 'bold' }}>
+              🛡️ Verified Student
+            </span>
             <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: currentBadge.color, color: 'white', fontWeight: 'bold' }}>
               {currentBadge.title}
             </span>
@@ -688,8 +811,8 @@ function App() {
         
         {activeTab === 'feed' && (
           <div className="feed-section">
-            <h2>Indian Academic Book Marketplace</h2>
-            <p className="subtitle">Cloud-synced listings with in-app live chat and price drop alerts.</p>
+            <h2>Verified Indian Academic Book Marketplace</h2>
+            <p className="subtitle">Cloud-synced listings with verified peer ratings and in-app live chat.</p>
             
             {loading ? (
               <p>Loading books from cloud database...</p>
@@ -703,6 +826,7 @@ function App() {
                   const isOwner = book.seller && book.seller.toLowerCase() === currentUserEmail.toLowerCase();
                   const canDelete = isOwner || isAdmin;
                   const affordability = getAffordabilityTag(book.listPrice);
+                  const sellerRating = getPeerRating(book.seller);
 
                   return (
                     <div key={book.id} className={`book-card ${isMatched ? 'matched-card' : ''}`}>
@@ -735,11 +859,11 @@ function App() {
                       </div>
 
                       <p className="condition">Condition: <strong>{book.condition}</strong></p>
-                      <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
-                      <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Seller: {book.seller}</p>
+                      <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '3px' }}>📍 Pickup: <strong>{book.location || 'Main Library'}</strong></p>
+                      <p style={{ fontSize: '0.8rem', color: '#27ae60', marginBottom: '5px' }}>👤 Seller: {book.seller} ({sellerRating})</p>
                       
                       <button className="contact-btn" onClick={() => setChatBook(book)}>
-                        In-App Live Chat 💬
+                        In-App Chat & Meetup 💬
                       </button>
                     </div>
                   );
@@ -749,20 +873,36 @@ function App() {
           </div>
         )}
 
-        {/* IN-APP CHAT MODAL */}
+        {/* IN-APP CHAT & MEETUP SCHEDULER MODAL (Feature 2) */}
         {chatBook && (
           <div style={{ position: 'fixed', top: 0, left: 0, width: '100%', height: '100%', background: 'rgba(0,0,0,0.5)', display: 'flex', justifyContent: 'center', alignItems: 'center', zIndex: 1000 }}>
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', width: '450px', maxWidth: '90%', maxHeight: '85vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 20px rgba(0,0,0,0.25)' }}>
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', width: '480px', maxWidth: '95%', maxHeight: '90vh', display: 'flex', flexDirection: 'column', boxShadow: '0 4px 20px rgba(0,0,0,0.25)', overflowY: 'auto' }}>
               <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', borderBottom: '1px solid #eee', paddingBottom: '10px', marginBottom: '15px' }}>
                 <div>
-                  <h3 style={{ margin: 0, color: '#1a237e', fontSize: '1.1rem' }}>💬 In-App Chat: {chatBook.title}</h3>
+                  <h3 style={{ margin: 0, color: '#1a237e', fontSize: '1.1rem' }}>💬 Chat & Meetup: {chatBook.title}</h3>
                   <span style={{ fontSize: '0.8rem', color: '#666' }}>Seller: {chatBook.seller} | Location: {chatBook.location}</span>
                 </div>
                 <button onClick={() => setChatBook(null)} style={{ background: 'none', border: 'none', fontSize: '1.4rem', cursor: 'pointer', fontWeight: 'bold' }}>&times;</button>
               </div>
 
+              {/* Meetup Scheduler Section (Feature 2) */}
+              <div style={{ background: '#e8f5e9', padding: '12px', borderRadius: '6px', marginBottom: '15px', borderLeft: '4px solid #27ae60' }}>
+                <h4 style={{ margin: '0 0 8px 0', color: '#2e7d32', fontSize: '0.9rem' }}>📅 Schedule Campus Meetup (Feature 2)</h4>
+                {meetupSuccessMsg && <div style={{ fontSize: '0.8rem', color: '#2e7d32', marginBottom: '8px', fontWeight: 'bold' }}>{meetupSuccessMsg}</div>}
+                <form onSubmit={handleScheduleMeetup} style={{ display: 'grid', gridTemplateColumns: '1fr 1fr auto', gap: '8px' }}>
+                  <select value={meetupLocation} onChange={(e) => setMeetupLocation(e.target.value)} style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '4px' }}>
+                    <option value="Central Library">Central Library</option>
+                    <option value="Main Canteen">Main Canteen</option>
+                    <option value="Science Block Gate">Science Block Gate</option>
+                    <option value="Student Activity Center">Student Activity Center</option>
+                  </select>
+                  <input type="datetime-local" value={meetupTime} onChange={(e) => setMeetupTime(e.target.value)} style={{ padding: '6px', fontSize: '0.8rem', borderRadius: '4px' }} required />
+                  <button type="submit" style={{ background: '#27ae60', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', fontSize: '0.8rem', fontWeight: 'bold', cursor: 'pointer' }}>Propose</button>
+                </form>
+              </div>
+
               {/* Chat Message History Box */}
-              <div style={{ flex: 1, overflowY: 'auto', background: '#f9f9f9', padding: '12px', borderRadius: '6px', marginBottom: '15px', minHeight: '220px', maxHeight: '300px' }}>
+              <div style={{ flex: 1, overflowY: 'auto', background: '#f9f9f9', padding: '12px', borderRadius: '6px', marginBottom: '15px', minHeight: '180px', maxHeight: '220px' }}>
                 {chatMessages.map((msg, idx) => {
                   const isMe = msg.sender === currentUserEmail;
                   return (
@@ -782,7 +922,7 @@ function App() {
                   type="text" 
                   value={newMessageText} 
                   onChange={(e) => setNewMessageText(e.target.value)} 
-                  placeholder="Type your chat message or meetup offer..." 
+                  placeholder="Type your message..." 
                   style={{ flex: 1, padding: '10px', borderRadius: '6px', border: '1px solid #ccc', fontSize: '0.9rem' }}
                   required
                 />
@@ -794,28 +934,38 @@ function App() {
           </div>
         )}
 
-        {/* DONATIONS / FREE GIVEAWAY PAGE */}
+        {/* DONATIONS & DIGITAL PDF / NOTES HUB (Feature 3) */}
         {activeTab === 'donations' && (
           <div className="feed-section">
-            <h2>🎁 Free Book Donations & Giveaways</h2>
-            <p className="subtitle">Students giving away old textbooks and notes 100% free of charge to juniors in need. (Listings set to ₹0 automatically appear here!)</p>
+            <h2>🎁 Free Book Donations & Digital Study Notes Hub (Feature 3)</h2>
+            <p className="subtitle">Share free physical textbooks or upload class notes, formula sheets, and study guide PDFs instantly for peers.</p>
 
             {donSuccessMsg && <div className="alert success">{donSuccessMsg}</div>}
 
             <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ marginTop: 0, color: '#1a237e' }}>📦 Donate a Book / Notes for Free</h3>
+              <h3 style={{ marginTop: 0, color: '#1a237e' }}>📂 Donate Physical Book or Upload Digital PDF Notes</h3>
               <form onSubmit={(e) => {
                 e.preventDefault();
                 if (!donTitle || !donCourse) { alert('Please fill required fields'); return; }
-                const newDon = { id: Date.now().toString(), title: donTitle, author: donAuthor || 'Various', course: donCourse.toUpperCase(), condition: donCondition, donor: currentUserEmail, location: donLocation || 'Library' };
+                const newDon = { 
+                  id: Date.now().toString(), 
+                  title: donTitle, 
+                  author: donAuthor || 'Various', 
+                  course: donCourse.toUpperCase(), 
+                  condition: donIsDigital ? 'Digital PDF' : donCondition, 
+                  donor: currentUserEmail, 
+                  location: donIsDigital ? 'Online Drive' : (donLocation || 'Library'),
+                  isDigital: donIsDigital,
+                  pdfLink: donIsDigital ? (donPdfLink || 'https://www.w3.org/WAI/ER/tests/xhtml/testfiles/resources/pdf/dummy.pdf') : ''
+                };
                 setDonations([newDon, ...donations]);
-                setDonSuccessMsg('Book donation listed successfully! Thank you for supporting peer education.');
-                setDonTitle(''); setDonAuthor(''); setDonCourse(''); setDonLocation('');
+                setDonSuccessMsg('Donation/Digital resource published successfully!');
+                setDonTitle(''); setDonAuthor(''); setDonCourse(''); setDonLocation(''); setDonPdfLink('');
               }} className="book-form">
                 <div className="form-row">
                   <div className="form-group">
-                    <label>Book / Notes Title</label>
-                    <input type="text" value={donTitle} onChange={(e) => setDonTitle(e.target.value)} placeholder="e.g. Physics handwritten notes" required />
+                    <label>Title / Notes Name</label>
+                    <input type="text" value={donTitle} onChange={(e) => setDonTitle(e.target.value)} placeholder="e.g. Physics Formula Sheet" required />
                   </div>
                   <div className="form-group">
                     <label>Course Code</label>
@@ -828,40 +978,112 @@ function App() {
                     <input type="text" value={donAuthor} onChange={(e) => setDonAuthor(e.target.value)} placeholder="e.g. Senior Batch" />
                   </div>
                   <div className="form-group">
+                    <label>Resource Type</label>
+                    <select value={donIsDigital ? 'digital' : 'physical'} onChange={(e) => setDonIsDigital(e.target.value === 'digital')}>
+                      <option value="physical">Physical Book / Notes</option>
+                      <option value="digital">Digital PDF / Notes Share (Feature 3)</option>
+                    </select>
+                  </div>
+                </div>
+
+                {donIsDigital ? (
+                  <div className="form-group">
+                    <label>PDF Drive / Resource Link (URL)</label>
+                    <input type="url" value={donPdfLink} onChange={(e) => setDonPdfLink(e.target.value)} placeholder="https://drive.google.com/... or sample PDF link" />
+                  </div>
+                ) : (
+                  <div className="form-group">
                     <label>Pickup Location</label>
                     <input type="text" value={donLocation} onChange={(e) => setDonLocation(e.target.value)} placeholder="Hostel 2 / Main Library" required />
                   </div>
-                </div>
-                <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>List Free Donation 🎁</button>
+                )}
+
+                <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>Publish Free Resource 🎁</button>
               </form>
             </div>
 
-            <h3>Available Free Giveaways:</h3>
+            <h3>Available Free Giveaways & Digital Resources:</h3>
             <div className="book-grid" style={{ marginTop: '15px' }}>
               {donations.map((item) => {
                 const isOwner = item.donor && item.donor.toLowerCase() === currentUserEmail.toLowerCase();
                 const canDeleteDon = isOwner || isAdmin;
 
                 return (
-                  <div key={item.id} className="book-card" style={{ borderTop: '4px solid #27ae60', position: 'relative' }}>
+                  <div key={item.id} className="book-card" style={{ borderTop: `4px solid ${item.isDigital ? '#2980b9' : '#27ae60'}`, position: 'relative' }}>
                     {canDeleteDon && (
-                      <button className="delete-btn" onClick={() => handleDeleteDonation(item.id, item.donor)} title="Remove Giveaway">
+                      <button className="delete-btn" onClick={() => handleDeleteDonation(item.id, item.donor)} title="Remove Resource">
                         &times;
                       </button>
                     )}
-                    <span style={{ background: '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎁 FREE GIVEAWAY</span>
+                    <span style={{ background: item.isDigital ? '#2980b9' : '#27ae60', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>
+                      {item.isDigital ? '📂 DIGITAL PDF NOTES' : '🎁 FREE GIVEAWAY'}
+                    </span>
                     <div className="course-tag" style={{ marginTop: '8px' }}>{item.course}</div>
                     <h3>{item.title}</h3>
                     <p className="author">by {item.author}</p>
-                    <p className="condition">Condition: <strong>{item.condition}</strong></p>
-                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 Pickup: <strong>{item.location}</strong></p>
-                    <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Donor: {item.donor}</p>
-                    <button className="contact-btn" style={{ background: '#27ae60' }} onClick={() => alert(`Contact donor at ${item.donor} to claim this free donation!`)}>
-                      Claim Free Book 🤝
-                    </button>
+                    <p className="condition">Type: <strong>{item.condition}</strong></p>
+                    <p style={{ fontSize: '0.8rem', color: '#555', marginBottom: '5px' }}>📍 {item.isDigital ? 'Access:' : 'Pickup:'} <strong>{item.location}</strong></p>
+                    <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Shared by: {item.donor}</p>
+                    
+                    {item.isDigital ? (
+                      <a href={item.pdfLink || '#'} target="_blank" rel="noopener noreferrer" className="contact-btn" style={{ background: '#2980b9', display: 'block', textAlign: 'center', textDecoration: 'none', color: 'white' }}>
+                        Download PDF Notes 📂
+                      </a>
+                    ) : (
+                      <button className="contact-btn" style={{ background: '#27ae60' }} onClick={() => alert(`Contact donor at ${item.donor} to claim this free book!`)}>
+                        Claim Free Book 🤝
+                      </button>
+                    )}
                   </div>
                 );
               })}
+            </div>
+          </div>
+        )}
+
+        {/* ISO (IN SEARCH OF) REQUEST BOARD (Feature 5) */}
+        {activeTab === 'iso' && (
+          <div className="feed-section">
+            <h2>🎯 ISO (In Search Of) Request Board (Feature 5)</h2>
+            <p className="subtitle">Looking for a specific textbook that isn't listed yet? Post your request here so campus sellers can find you!</p>
+
+            {isoSuccessMsg && <div className="alert success">{isoSuccessMsg}</div>}
+
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
+              <h3 style={{ marginTop: 0, color: '#27ae60' }}>📝 Post an ISO Request</h3>
+              <form onSubmit={handleIsoSubmit} className="book-form">
+                <div className="form-row">
+                  <div className="form-group">
+                    <label>Course Code</label>
+                    <input type="text" value={isoCourse} onChange={(e) => setIsoCourse(e.target.value)} placeholder="e.g. BTECH-CSE301" required />
+                  </div>
+                  <div className="form-group">
+                    <label>Maximum Target Budget (₹)</label>
+                    <input type="number" value={isoBudget} onChange={(e) => setIsoBudget(e.target.value)} placeholder="e.g. 250" />
+                  </div>
+                </div>
+                <div className="form-group">
+                  <label>Textbook Title & Author Needed</label>
+                  <input type="text" value={isoTitle} onChange={(e) => setIsoTitle(e.target.value)} placeholder="e.g. Operating System Concepts by Silberschatz" required />
+                </div>
+                <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>Post ISO Request 🎯</button>
+              </form>
+            </div>
+
+            <h3>Active Student ISO Requests:</h3>
+            <div className="book-grid" style={{ marginTop: '15px' }}>
+              {isoRequests.map((iso) => (
+                <div key={iso.id} className="book-card" style={{ borderTop: '4px solid #e67e22' }}>
+                  <span style={{ background: '#e67e22', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎯 SEARCHING FOR BOOK</span>
+                  <div className="course-tag" style={{ marginTop: '8px' }}>{iso.course}</div>
+                  <h3>{iso.title}</h3>
+                  <p className="condition">Target Budget: <strong>{iso.budget}</strong></p>
+                  <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Requester: {iso.requester}</p>
+                  <button className="contact-btn" style={{ background: '#e67e22' }} onClick={() => alert(`Contact student at ${iso.requester} to sell them this book!`)}>
+                    I Have This Book! 💬
+                  </button>
+                </div>
+              ))}
             </div>
           </div>
         )}
@@ -917,7 +1139,7 @@ function App() {
               </div>
 
               <div className="form-group">
-                <label>Institutional Email</label>
+                <label>Verified Institutional Email</label>
                 <input 
                   type="email" 
                   value={formSeller} 
@@ -927,7 +1149,7 @@ function App() {
                 />
               </div>
 
-              <button type="submit" className="submit-btn">
+              <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>
                 Publish Listing (₹0 Shifts to Free Giveaways 🎁)
               </button>
             </form>
@@ -971,7 +1193,7 @@ function App() {
                   placeholder="e.g. 200" 
                 />
               </div>
-              <button type="submit" className="submit-btn">Enable Wishlist & Price Drop Alerts 🔔</button>
+              <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>Enable Wishlist & Price Drop Alerts 🔔</button>
             </form>
 
             <div style={{ marginTop: '30px' }}>
@@ -1023,7 +1245,7 @@ function App() {
                   <label>Your Feedback / Experience</label>
                   <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Share how EduShare Connect helped you..." rows="3" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} required></textarea>
                 </div>
-                <button type="submit" className="submit-btn" style={{ width: 'auto', padding: '10px 20px' }}>Publish Review</button>
+                <button type="submit" className="submit-btn" style={{ width: 'auto', padding: '10px 20px', background: '#27ae60' }}>Publish Review</button>
               </form>
             </div>
 
@@ -1045,8 +1267,28 @@ function App() {
 
         {activeTab === 'profile' && (
           <div className="feed-section">
-            <h2>My User Profile & Badge Status</h2>
-            <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong></p>
+            <h2>My Verified User Profile & Peer Trust Score</h2>
+            <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong> (Trust Rating: <strong>{getPeerRating(currentUserEmail)}</strong>)</p>
+
+            {ratingSuccessMsg && <div className="alert success">{ratingSuccessMsg}</div>}
+
+            {/* User Rating Submission Form (Feature 4) */}
+            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', borderLeft: '4px solid #f39c12' }}>
+              <h3 style={{ marginTop: 0, color: '#d35400', fontSize: '1.1rem' }}>⭐ Rate a Peer Student (Feature 4)</h3>
+              <p style={{ fontSize: '0.85rem', color: '#666', marginBottom: '15px' }}>Completed an exchange? Rate your peer seller/buyer to boost campus trust scores.</p>
+              <form onSubmit={handleRatingSubmit} style={{ display: 'grid', gridTemplateColumns: '1fr 120px 1fr auto', gap: '10px', alignItems: 'center' }}>
+                <input type="email" value={ratingTargetUser} onChange={(e) => setRatingTargetUser(e.target.value)} placeholder="peer@college.ac.in" style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }} required />
+                <select value={ratingStars} onChange={(e) => setRatingStars(e.target.value)} style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }}>
+                  <option value="5">⭐⭐⭐⭐⭐ (5)</option>
+                  <option value="4">⭐⭐⭐⭐ (4)</option>
+                  <option value="3">⭐⭐⭐ (3)</option>
+                  <option value="2">⭐⭐ (2)</option>
+                  <option value="1">⭐ (1)</option>
+                </select>
+                <input type="text" value={ratingReviewText} onChange={(e) => setRatingReviewText(e.target.value)} placeholder="Great meetup experience!" style={{ padding: '8px', borderRadius: '4px', border: '1px solid #ccc', fontSize: '0.9rem' }} />
+                <button type="submit" style={{ background: '#f39c12', color: 'white', border: 'none', padding: '9px 16px', borderRadius: '4px', fontWeight: 'bold', cursor: 'pointer' }}>Rate Peer</button>
+              </form>
+            </div>
 
             <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', marginBottom: '25px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: '15px' }}>
               <div>
@@ -1092,7 +1334,7 @@ function App() {
               )}
             </div>
 
-            <h3 style={{ marginTop: '30px' }}>Your Free Book Giveaways:</h3>
+            <h3 style={{ marginTop: '30px' }}>Your Free Book Giveaways & Digital Notes:</h3>
             <div className="book-grid" style={{ marginTop: '15px' }}>
               {donations.filter(d => d.donor && d.donor.toLowerCase() === currentUserEmail.toLowerCase()).length === 0 ? (
                 <p style={{ color: '#777' }}>You have not listed any free giveaways yet.</p>
@@ -1118,7 +1360,7 @@ function App() {
         {isAdmin && activeTab === 'admin' && (
           <div className="feed-section">
             <h2>Admin Platform Dashboard & Statistics</h2>
-            <p className="subtitle">Overview of platform metrics, textbook transactions, and sold/shared books inventory.</p>
+            <p className="subtitle">Overview of platform metrics, textbook transactions, and verified student statistics.</p>
             
             <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '20px', marginBottom: '30px' }}>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #3f51b5' }}>
@@ -1132,8 +1374,8 @@ function App() {
                 </p>
               </div>
               <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #e67e22' }}>
-                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>Published Reviews</h4>
-                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#d35400' }}>{reviews.length}</p>
+                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>ISO Requests</h4>
+                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#d35400' }}>{isoRequests.length}</p>
               </div>
             </div>
 
@@ -1175,46 +1417,6 @@ function App() {
                 </table>
               </div>
             )}
-
-            {/* Free Giveaways Table for Admins */}
-            <div style={{ background: '#fff', borderRadius: '8px', padding: '20px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)', marginTop: '30px' }}>
-              <h3 style={{ marginTop: 0, color: '#27ae60' }}>🎁 Active Free Book Giveaways ({donations.length})</h3>
-              <table style={{ width: '100%', borderCollapse: 'collapse', textAlign: 'left', marginTop: '15px' }}>
-                <thead>
-                  <tr style={{ borderBottom: '2px solid #ddd', color: '#555' }}>
-                    <th style={{ padding: '10px' }}>Course Code</th>
-                    <th style={{ padding: '10px' }}>Title</th>
-                    <th style={{ padding: '10px' }}>Donor Email</th>
-                    <th style={{ padding: '10px' }}>Pickup Location</th>
-                    <th style={{ padding: '10px' }}>Actions</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {donations.length === 0 ? (
-                    <tr>
-                      <td colSpan="5" style={{ padding: '15px', textAlign: 'center', color: '#777' }}>No active free giveaways.</td>
-                    </tr>
-                  ) : (
-                    donations.map((item) => (
-                      <tr key={item.id} style={{ borderBottom: '1px solid #eee' }}>
-                        <td style={{ padding: '10px', fontWeight: 'bold' }}>{item.course}</td>
-                        <td style={{ padding: '10px' }}>{item.title}</td>
-                        <td style={{ padding: '10px', color: '#666' }}>{item.donor}</td>
-                        <td style={{ padding: '10px' }}>{item.location}</td>
-                        <td style={{ padding: '10px' }}>
-                          <button 
-                            onClick={() => handleDeleteDonation(item.id, item.donor)} 
-                            style={{ background: '#e74c3c', color: 'white', border: 'none', padding: '6px 12px', borderRadius: '4px', cursor: 'pointer', fontWeight: 'bold' }}
-                          >
-                            Delete
-                          </button>
-                        </td>
-                      </tr>
-                    ))
-                  )}
-                </tbody>
-              </table>
-            </div>
           </div>
         )}
 

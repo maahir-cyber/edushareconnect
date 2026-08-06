@@ -20,26 +20,6 @@ function App() {
   const [books, setBooks] = useState([]);
   const [loading, setLoading] = useState(true);
 
-  // Reviews state with localStorage
-  const [reviews, setReviews] = useState(() => {
-    const savedReviews = localStorage.getItem('edushare_reviews');
-    return savedReviews ? JSON.parse(savedReviews) : [
-      { id: '1', name: 'Rahul Sharma', course: 'Class 12 Science', text: 'EduShare Connect saved me so much money on my JEE prep books! Got NCERT books at half price.', rating: '⭐⭐⭐⭐⭐' },
-      { id: '2', name: 'Priya Verma', course: 'B.Tech CSE', text: 'Amazing platform! Very easy to list unused textbooks and connect directly with campus students.', rating: '⭐⭐⭐⭐⭐' }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('edushare_reviews', JSON.stringify(reviews));
-  }, [reviews]);
-
-  // Review Form State
-  const [reviewName, setReviewName] = useState('');
-  const [reviewCourse, setReviewCourse] = useState('');
-  const [reviewText, setReviewText] = useState('');
-  const [reviewRating, setReviewRating] = useState('⭐⭐⭐⭐⭐');
-  const [reviewSuccessMsg, setReviewSuccessMsg] = useState('');
-
   // Search and Filter States
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedCategoryFilter, setSelectedCategoryFilter] = useState('ALL');
@@ -53,7 +33,7 @@ function App() {
   const [meetupTime, setMeetupTime] = useState('');
   const [meetupSuccessMsg, setMeetupSuccessMsg] = useState('');
 
-  // Donations State with localStorage persistence (Now includes digital PDFs/Notes support - Feature 3)
+  // Donations State with localStorage persistence (Now includes digital PDFs/Notes support)
   const [donations, setDonations] = useState(() => {
     const savedDonations = localStorage.getItem('edushare_donations');
     return savedDonations ? JSON.parse(savedDonations) : [
@@ -75,7 +55,7 @@ function App() {
   const [donPdfLink, setDonPdfLink] = useState('');
   const [donSuccessMsg, setDonSuccessMsg] = useState('');
 
-  // User Ratings & Peer Trust Score State (Feature 4)
+  // User Ratings & Peer Trust Score State
   const [userRatings, setUserRatings] = useState(() => {
     const savedRatings = localStorage.getItem('edushare_user_ratings');
     return savedRatings ? JSON.parse(savedRatings) : {
@@ -91,23 +71,6 @@ function App() {
   const [ratingStars, setRatingStars] = useState(5);
   const [ratingReviewText, setRatingReviewText] = useState('');
   const [ratingSuccessMsg, setRatingSuccessMsg] = useState('');
-
-  // ISO (In Search Of) Request Board State (Feature 5)
-  const [isoRequests, setIsoRequests] = useState(() => {
-    const savedIso = localStorage.getItem('edushare_iso');
-    return savedIso ? JSON.parse(savedIso) : [
-      { id: 'iso1', course: 'BTECH-CSE201', title: 'Data Structures and Algorithms by Cormen', requester: 'rahul@gmail.com', budget: '₹300' }
-    ];
-  });
-
-  useEffect(() => {
-    localStorage.setItem('edushare_iso', JSON.stringify(isoRequests));
-  }, [isoRequests]);
-
-  const [isoCourse, setIsoCourse] = useState('');
-  const [isoTitle, setIsoTitle] = useState('');
-  const [isoBudget, setIsoBudget] = useState('');
-  const [isoSuccessMsg, setIsoSuccessMsg] = useState('');
 
   // Check if current user is admin
   const isAdmin = currentUserEmail.trim().toLowerCase() === 'admin@edushare.ac.in';
@@ -372,29 +335,6 @@ function App() {
     }
   };
 
-  // Handle publishing a student review
-  const handleReviewSubmit = (e) => {
-    e.preventDefault();
-    if (!reviewName || !reviewText) {
-      alert('Please fill out your name and review message.');
-      return;
-    }
-
-    const newReview = {
-      id: Date.now().toString(),
-      name: reviewName,
-      course: reviewCourse || 'Student',
-      text: reviewText,
-      rating: reviewRating
-    };
-
-    setReviews([newReview, ...reviews]);
-    setReviewSuccessMsg('Review published successfully! Thank you for sharing your feedback.');
-    setReviewName('');
-    setReviewCourse('');
-    setReviewText('');
-  };
-
   const removePreference = (pref) => {
     setPreferences(preferences.filter(p => p !== pref));
   };
@@ -475,31 +415,6 @@ function App() {
     if (!data || data.count === 0) return 'Gmail Verified Student (5.0 ⭐)';
     const avg = (data.totalStars / data.count).toFixed(1);
     return `${avg} ⭐ (${data.count} ratings)`;
-  };
-
-  // Handle ISO Request submission
-  const handleIsoSubmit = (e) => {
-    e.preventDefault();
-    setIsoSuccessMsg('');
-
-    if (!isoCourse || !isoTitle) {
-      alert('Please fill out the course code and book title.');
-      return;
-    }
-
-    const newIso = {
-      id: Date.now().toString(),
-      course: isoCourse.toUpperCase(),
-      title: isoTitle,
-      requester: currentUserEmail,
-      budget: isoBudget ? `₹${isoBudget}` : 'Negotiable'
-    };
-
-    setIsoRequests([newIso, ...isoRequests]);
-    setIsoSuccessMsg('🎯 ISO request posted successfully! Campus sellers can now view what you are searching for.');
-    setIsoCourse('');
-    setIsoTitle('');
-    setIsoBudget('');
   };
 
   // Calculate Badge System
@@ -718,11 +633,9 @@ function App() {
           <button className={activeTab === 'feed' ? 'active' : ''} onClick={() => setItemsTab('feed')}>Marketplace</button>
           <button className={activeTab === 'sell' ? 'active' : ''} onClick={() => setItemsTab('sell')}>Sell Book</button>
           <button className={activeTab === 'donations' ? 'active' : ''} onClick={() => setItemsTab('donations')}>Donations & PDFs 🎁</button>
-          <button className={activeTab === 'iso' ? 'active' : ''} onClick={() => setItemsTab('iso')} style={{ background: '#27ae60', color: 'white' }}>ISO Board 🎯</button>
           <button className={activeTab === 'preferences' ? 'active' : ''} onClick={() => setItemsTab('preferences')}>
             Wishlist {wishlistMatchCount > 0 && <span style={{ background: '#e74c3c', color: 'white', padding: '1px 6px', borderRadius: '10px', fontSize: '0.75rem', marginLeft: '5px' }}>{wishlistMatchCount}</span>}
           </button>
-          <button className={activeTab === 'reviews' ? 'active' : ''} onClick={() => setItemsTab('reviews')}>Reviews</button>
           <button className={activeTab === 'profile' ? 'active' : ''} onClick={() => setItemsTab('profile')}>Profile</button>
           {isAdmin && (
             <button className={activeTab === 'admin' ? 'active' : ''} onClick={() => setItemsTab('admin')} style={{ background: '#d35400', color: 'white' }}>
@@ -739,9 +652,6 @@ function App() {
             User: <strong>{currentUserEmail}</strong> {isAdmin && <span style={{ color: '#d35400', fontWeight: 'bold' }}>(Admin)</span>}
           </span>
           <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-            <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: '#27ae60', color: 'white', fontWeight: 'bold' }}>
-              ✉️ Gmail Verified
-            </span>
             <span style={{ fontSize: '0.8rem', padding: '4px 10px', borderRadius: '12px', background: currentBadge.color, color: 'white', fontWeight: 'bold' }}>
               {currentBadge.title}
             </span>
@@ -811,7 +721,7 @@ function App() {
         
         {activeTab === 'feed' && (
           <div className="feed-section">
-            <h2>Gmail Verified Academic Book Marketplace</h2>
+            <h2>Academic Book Marketplace</h2>
             <p className="subtitle">Cloud-synced listings with verified peer ratings and in-app live chat.</p>
             
             {loading ? (
@@ -1041,53 +951,6 @@ function App() {
           </div>
         )}
 
-        {/* ISO (IN SEARCH OF) REQUEST BOARD */}
-        {activeTab === 'iso' && (
-          <div className="feed-section">
-            <h2>🎯 ISO (In Search Of) Request Board</h2>
-            <p className="subtitle">Looking for a specific textbook that isn't listed yet? Post your request here so campus sellers can find you!</p>
-
-            {isoSuccessMsg && <div className="alert success">{isoSuccessMsg}</div>}
-
-            <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ marginTop: 0, color: '#27ae60' }}>📝 Post an ISO Request</h3>
-              <form onSubmit={handleIsoSubmit} className="book-form">
-                <div className="form-row">
-                  <div className="form-group">
-                    <label>Course Code</label>
-                    <input type="text" value={isoCourse} onChange={(e) => setIsoCourse(e.target.value)} placeholder="e.g. BTECH-CSE301" required />
-                  </div>
-                  <div className="form-group">
-                    <label>Maximum Target Budget (₹)</label>
-                    <input type="number" value={isoBudget} onChange={(e) => setIsoBudget(e.target.value)} placeholder="e.g. 250" />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Textbook Title & Author Needed</label>
-                  <input type="text" value={isoTitle} onChange={(e) => setIsoTitle(e.target.value)} placeholder="e.g. Operating System Concepts by Silberschatz" required />
-                </div>
-                <button type="submit" className="submit-btn" style={{ background: '#27ae60' }}>Post ISO Request 🎯</button>
-              </form>
-            </div>
-
-            <h3>Active Student ISO Requests:</h3>
-            <div className="book-grid" style={{ marginTop: '15px' }}>
-              {isoRequests.map((iso) => (
-                <div key={iso.id} className="book-card" style={{ borderTop: '4px solid #e67e22' }}>
-                  <span style={{ background: '#e67e22', color: 'white', padding: '2px 8px', borderRadius: '4px', fontSize: '0.75rem', fontWeight: 'bold' }}>🎯 SEARCHING FOR BOOK</span>
-                  <div className="course-tag" style={{ marginTop: '8px' }}>{iso.course}</div>
-                  <h3>{iso.title}</h3>
-                  <p className="condition">Target Budget: <strong>{iso.budget}</strong></p>
-                  <p style={{ fontSize: '0.8rem', color: '#888', marginBottom: '10px' }}>Requester: {iso.requester}</p>
-                  <button className="contact-btn" style={{ background: '#e67e22' }} onClick={() => alert(`Contact student at ${iso.requester} to sell them this book!`)}>
-                    I Have This Book! 💬
-                  </button>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeTab === 'sell' && (
           <div className="form-section">
             <h2>List Your Unused Textbook</h2>
@@ -1213,61 +1076,9 @@ function App() {
           </div>
         )}
 
-        {activeTab === 'reviews' && (
-          <div className="feed-section">
-            <h2>Student Reviews & Success Stories</h2>
-            <p className="subtitle">Read what other students are saying or write your own review about sharing and buying textbooks.</p>
-
-            {reviewSuccessMsg && <div className="alert success">{reviewSuccessMsg}</div>}
-
-            <div style={{ background: '#fff', padding: '25px', borderRadius: '8px', marginBottom: '30px', boxShadow: '0 2px 8px rgba(0,0,0,0.06)' }}>
-              <h3 style={{ marginTop: 0, color: '#1a237e' }}>✍️ Write a Review</h3>
-              <form onSubmit={handleReviewSubmit} className="book-form">
-                <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '15px' }}>
-                  <div className="form-group">
-                    <label>Your Name</label>
-                    <input type="text" value={reviewName} onChange={(e) => setReviewName(e.target.value)} placeholder="Rahul Sharma" required />
-                  </div>
-                  <div className="form-group">
-                    <label>Class / Course</label>
-                    <input type="text" value={reviewCourse} onChange={(e) => setReviewCourse(e.target.value)} placeholder="Class 12 / B.Tech" required />
-                  </div>
-                </div>
-                <div className="form-group">
-                  <label>Rating</label>
-                  <select value={reviewRating} onChange={(e) => setReviewRating(e.target.value)}>
-                    <option value="⭐⭐⭐⭐⭐">⭐⭐⭐⭐⭐ (5/5)</option>
-                    <option value="⭐⭐⭐⭐">⭐⭐⭐⭐ (4/5)</option>
-                    <option value="⭐⭐⭐">⭐⭐⭐ (3/5)</option>
-                  </select>
-                </div>
-                <div className="form-group">
-                  <label>Your Feedback / Experience</label>
-                  <textarea value={reviewText} onChange={(e) => setReviewText(e.target.value)} placeholder="Share how EduShare Connect helped you..." rows="3" style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #ccc', boxSizing: 'border-box' }} required></textarea>
-                </div>
-                <button type="submit" className="submit-btn" style={{ width: 'auto', padding: '10px 20px', background: '#27ae60' }}>Publish Review</button>
-              </form>
-            </div>
-
-            <h3>Community Feedback:</h3>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '20px', marginTop: '15px' }}>
-              {reviews.map((rev) => (
-                <div key={rev.id} style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', display: 'flex', flexDirection: 'column' }}>
-                  <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
-                    <strong>{rev.name}</strong>
-                    <span style={{ fontSize: '0.8rem', background: '#e8eaf6', color: '#3f51b5', padding: '2px 8px', borderRadius: '4px', fontWeight: 'bold' }}>{rev.course}</span>
-                  </div>
-                  <div style={{ marginBottom: '10px', fontSize: '0.9rem' }}>{rev.rating}</div>
-                  <p style={{ margin: 0, color: '#555', fontSize: '0.95krn', lineHeight: '1.4' }}>"{rev.text}"</p>
-                </div>
-              ))}
-            </div>
-          </div>
-        )}
-
         {activeTab === 'profile' && (
           <div className="feed-section">
-            <h2>My Gmail User Profile & Peer Trust Score</h2>
+            <h2>My User Profile & Peer Trust Score</h2>
             <p className="subtitle">Account overview for <strong>{currentUserEmail}</strong> (Trust Rating: <strong>{getPeerRating(currentUserEmail)}</strong>)</p>
 
             {ratingSuccessMsg && <div className="alert success">{ratingSuccessMsg}</div>}
@@ -1372,10 +1183,6 @@ function App() {
                 <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#2e7d32' }}>
                   ₹{books.reduce((acc, curr) => acc + (Number(curr.listPrice) || 0), 0)}
                 </p>
-              </div>
-              <div style={{ background: '#fff', padding: '20px', borderRadius: '8px', boxShadow: '0 2px 6px rgba(0,0,0,0.05)', borderLeft: '4px solid #e67e22' }}>
-                <h4 style={{ margin: '0 0 5px 0', color: '#555', fontSize: '0.9rem' }}>ISO Requests</h4>
-                <p style={{ fontSize: '2rem', fontWeight: 'bold', margin: '0', color: '#d35400' }}>{isoRequests.length}</p>
               </div>
             </div>
 
